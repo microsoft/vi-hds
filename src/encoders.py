@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 import tensorflow as tf
 import numpy as np
@@ -35,7 +35,7 @@ class ConditionalConvolutionalEncoder(object):
         self.lambda_l2_hidden = params["lambda_l2_hidden"]
         self.transfer_func = params["transfer_func"]
 
-    def __call__(self, x_obs, x_delta_obs, dev_1hot, conds_obs, name='hidden'):
+    def __call__(self, x_delta_obs, name='hidden'):
 
         self.conv2 = tf.layers.conv1d(
             x_delta_obs,

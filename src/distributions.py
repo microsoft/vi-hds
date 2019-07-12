@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -71,7 +71,7 @@ def build_q_local(PARAMETERS, hidden, devs, conds, verbose, kernel_regularizer, 
         for other_param_name, other_param_value in description.other_params.items():
             params[other_param_name] = other_param_value
 
-        new_distribution = description.class_type(wait_for_assigned=True)
+        new_distribution = description.class_type(wait_for_assigned=True, variable=True)
         new_distribution.assign_free_and_constrained(**params)
 
         q_local.add_distribution(distribution_name, new_distribution)
@@ -83,7 +83,7 @@ def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=Non
     q_global_cond = ChainedDistribution(name="q_global_cond")
 
     if not hasattr(PARAMETERS, "g_c"):
-        print("Found no GLOBAL CONDITIONAL params")
+        print("- Found no global conditional params")
         return q_global_cond
 
     distribution_descriptions = PARAMETERS.g_c
@@ -126,7 +126,7 @@ def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=Non
         for other_param_name, other_param_value in description.other_params.items():
             params[other_param_name] = other_param_value
 
-        new_distribution = description.class_type(wait_for_assigned=True)
+        new_distribution = description.class_type(wait_for_assigned=True, variable=True)
         new_distribution.assign_free_and_constrained(**params)
 
         q_global_cond.add_distribution(distribution_name, new_distribution)
@@ -138,7 +138,7 @@ def build_q_global(PARAMETERS, verbose=False, stop_grad=False):
     q_global = ChainedDistribution(name="q_global")
 
     if not hasattr(PARAMETERS, "g"):
-        print("Found no GLOBAL params")
+        print("- Found no global parameters")
         return q_global
 
     distribution_descriptions = PARAMETERS.g
@@ -164,7 +164,7 @@ def build_q_global(PARAMETERS, verbose=False, stop_grad=False):
         for other_param_name, other_param_value in description.other_params.items():
             params[other_param_name] = other_param_value
 
-        new_distribution = description.class_type(wait_for_assigned=True)
+        new_distribution = description.class_type(wait_for_assigned=True, variable=False)
         new_distribution.assign_free_and_constrained(**params)
 
         q_global.add_distribution(distribution_name, new_distribution)
@@ -178,7 +178,7 @@ def build_p_global(PARAMETERS, theta=None, verbose=False):
     p_global = ChainedDistribution(name="p_global")
 
     if not hasattr(PARAMETERS, "g"):
-        print("Found no GLOBAL params")
+        print("- Found no global parameters")
         return p_global
 
     assert hasattr(PARAMETERS, "g"), "require global parameters"
@@ -221,7 +221,7 @@ def build_p_global_cond(PARAMETERS, verbose, theta=None):
     p_global_cond = ChainedDistribution(name="p_global_cond")
 
     if not hasattr(PARAMETERS, "g_c"):
-        print("Found no GLOBAL conditional params")
+        print("- Found no global conditional params")
         return p_global_cond
 
     assert hasattr(PARAMETERS, "g_c"), "require global conditioned parameters"
@@ -298,15 +298,6 @@ def build_p_local(PARAMETERS, theta=None, verbose=False):
         p_local.add_distribution(distribution_name, new_distribution, slots)
 
     return p_local
-
-def concat_local_global(p_local, p_global_cond, p_global, name):
-    concated = ChainedDistribution(name=name)
-
-    for chained in [p_local, p_global_cond, p_global]:
-        for name2, distribution in chained.distributions.items():
-            concated.add_distribution(name2, distribution, chained.slot_dependencies[name])
-
-    return concated
 
 class DotOperatorSamples(object):
     def __init__(self):
@@ -495,7 +486,7 @@ class ChainedDistribution(object):
         return names
 
     def get_theta_names(self):
-        return self.distributions.keys()
+        return list(self.distributions.keys())
 
     def __str__(self):
         return self.pretty_print()
@@ -506,9 +497,22 @@ class ChainedDistribution(object):
             s += "%s = %s slots=[%s]\n" % (key, getattr(self, key), str(self.slot_dependencies[key]))
         return s
 
+    # def get_tensors_by_name(self, theta_names):
+    #     tensors = []
+    #     for key in theta_names:
+    #         tensors.extend(self.distributions[key].get_tensors())
+    #     return tensors
+    
+    # def get_tensor_names(self, theta_names):
+    #     names = []
+    #     for key in theta_names:
+    #         names.extend(self.distributions[key].get_tensor_names(key))
+    #     return names
+
 
 class TfCrnDistribution(ABC):
-    def __init__(self):
+    def __init__(self, variable: bool):
+        self.variable = variable
         self.waiting_slots = {}
 
     def slots_are_pending(self):
@@ -547,7 +551,7 @@ class TfCrnDistribution(ABC):
 
 class TfDirac(TfCrnDistribution):
 
-    def __init__(self, mu=None, wait_for_assigned=False):
+    def __init__(self, mu=None, prec=None, wait_for_assigned=False):
         # TODO(dacart): set self.prec and self.param_names somehow, as they're needed below.
         # python2 version: super(TfCrnDistribution, self).__init__()
         super().__init__()
@@ -557,7 +561,7 @@ class TfDirac(TfCrnDistribution):
 
         self.mu = mu
         #     self.sigma = sigma
-        #     self.prec = prec
+        self.prec = prec
 
         # else:
         #     self.mu = mu
@@ -582,7 +586,7 @@ class TfDirac(TfCrnDistribution):
 
         # TODO: remove these guys
         # self.nbr_params = 2
-        # self.param_names = ["mu","prec"]
+        self.param_names = ["mu","prec"]
 
     def assign_free_and_constrained(self, mu):
         self.mu = mu
@@ -655,13 +659,12 @@ class TfDirac(TfCrnDistribution):
 
 class TfNormal(TfCrnDistribution):
 
-    def __init__(self, mu=None, c=None, sigma=None, prec=None, wait_for_assigned=False):
-        super(TfNormal, self).__init__()
+    def __init__(self, mu=None, c=None, sigma=None, prec=None, variable=True, wait_for_assigned=False):
+        super(TfNormal, self).__init__(variable)
 
         self.waiting_slots["mu"] = True
         self.waiting_slots["prec"] = True
         if wait_for_assigned is True:
-
             self.mu = mu
             self.sigma = sigma
             self.prec = prec
@@ -742,10 +745,15 @@ class TfNormal(TfCrnDistribution):
         return [self.mu, self.prec]
 
     def attach_summaries(self, name):
-        self._attach_summary_ops(self.mu, 'mu', name)
-        self._attach_summary_ops(self.prec, 'prec', name)
+        if self.variable:
+            self._attach_summary_variable(self.mu, 'mu', name)
+            self._attach_summary_variable(self.prec, 'prec', name)
+        else:
+            with tf.name_scope(name):
+                tf.summary.scalar('mu', tf.reduce_mean(self.mu))
+                tf.summary.scalar('prec', tf.reduce_mean(self.prec))
 
-    def _attach_summary_ops(self, var, param_name, var_name):
+    def _attach_summary_variable(self, var, param_name, var_name):
         with tf.name_scope('%s.%s' % (var_name, param_name)):
             mean = tf.reduce_mean(var)
             tf.summary.scalar('mean', mean)
@@ -855,45 +863,18 @@ class TfTruncatedNormal(TfNormal):
 
     def sample(self, u, stop_grad):
         raise NotImplementedError("Sample for TfTruncatedNormal hasn't been implemented with stop_grad argument yet ")
-
-        #PhiA = self.Phi((self.a - x) / self.sigma)
-        #PhiB = self.Phi((self.b - x) / self.sigma)
-        #Z = PhiB - PhiA
-        #pdb.set_trace()
-        #u = tf.Print(u, [self.PhiA, self.PhiB, self.Z], summarize=100)
-        #self.Z = check_quantity(self.Z, "self.Z")
-        #phiU = check_quantity(self.Phi(u), "self.Phi(u)")
-        phi_u = self.Phi(u)
-        standardized_u = self.PhiInverse(self.PhiA + phi_u*self.Z)
-        #standardized_u = check_quantity(standardized_u, "standardized_u")
-        s = self.mu + self.sigma*standardized_u
-        print("TRUNCATED SAMPLES: ", s.shape, self.mu.shape, self.sigma.shape, u.shape, self.Z.shape,
-              self.A.shape, self.B.shape, self.PhiA.shape, self.PhiB.shape)
-        return tf.clip_by_value(s, self.a, self.b)
+        # phi_u = self.Phi(u)
+        # standardized_u = self.PhiInverse(self.PhiA + phi_u*self.Z)
+        # s = self.mu + self.sigma*standardized_u
+        # print("TRUNCATED SAMPLES: ", s.shape, self.mu.shape, self.sigma.shape, u.shape, self.Z.shape,
+        #       self.A.shape, self.B.shape, self.PhiA.shape, self.PhiB.shape)
+        # return tf.clip_by_value(s, self.a, self.b)
 
 
     def log_prob(self, x, stop_grad):
         raise NotImplementedError("log_prob for TfTruncatedNormal hasn't been implemented with stop_grad argument yet ")
-        log_prob_full_support = super(TfTruncatedNormal, self).log_prob(x)
-        # A = (self.a - self.mu) / self.sigma
-        # B = (self.b - x) / self.sigma
-        #Z = self.Phi(B)-self.Phi(A)
-        #self.PhiB = check_quantity(self.PhiB, "self.PhiB")
-        #self.PhiA = check_quantity(self.PhiA, "self.PhiA")
-        #self.logZ = tf.Print(self.logZ,[self.A, self.B, self.PhiA, self.PhiB, self.Z],
-        #                     message="self.logZ" +": ", summarize=100)
-
-        # self.logZ = tf.Print(self.logZ, [self.mu], message = "mu--print: ", summarize=100)
-        # self.logZ = tf.Print(self.logZ, [self.sigma], message = "sigma--print: ", summarize=100)
-        # self.logZ = tf.Print(self.logZ, [self.A], message = "A--print: ", summarize=100)
-        # self.logZ = tf.Print(self.logZ, [self.B], message = "B--print: ", summarize=100)
-        # self.logZ = tf.Print(self.logZ, [self.PhiA], message = "PhiA--print: ", summarize=100)
-        # self.logZ = tf.Print(self.logZ, [self.PhiB], message = "PhiB--print: ", summarize=100)
-        # self.logZ = tf.Print(self.logZ, [self.Z], message = "Z--print: ", summarize=100)
-        # self.logZ = tf.Print(self.logZ, [self.logZ], message = "logZ--print: ", summarize=100)
-
-        # self.logZ = check_quantity(self.logZ, "self.logZ")
-        return log_prob_full_support - self.logZ
+        # log_prob_full_support = super(TfTruncatedNormal, self).log_prob(x)        
+        # return log_prob_full_support - self.logZ
 
     def Phi(self, eta):
         #return 0.5*(1 + tf.erf(eta / SQRT2))
@@ -994,8 +975,9 @@ class TfKumaraswamy(TfCrnDistribution):
         return s
 
     def get_tensors(self):
+        raise NotImplementedError("Haven't determined how to set mu and prec yet")
         # TODO(dacart): set self.mu and self.prec somewhere
-        return [self.mu, self.prec]
+        #return [self.mu, self.prec]
 
     def get_tensor_names(self, name):
         return ["%s.mu" % name, "%s.prec" % name]

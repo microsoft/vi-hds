@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 import seaborn as sns
 import matplotlib
@@ -9,6 +9,7 @@ import matplotlib.cm as cmx
 import pdb
 import numpy as np
 import pandas as pd
+import src.utils as utils
 
 def plot_prediction_summary(procdata, names, times, OBS, PREDICT, PRECISIONS, device_ids, log_ws, predict_style, fixYaxis = False):
     '''Compare the simulation against the data for the highest weighted sample'''
@@ -30,9 +31,8 @@ def plot_prediction_summary(procdata, names, times, OBS, PREDICT, PRECISIONS, de
     STD = 1.0 / np.sqrt(PREC)
 
     f, ax =pp.subplots(ndevices, nplots, sharex=True, figsize=(10, 2*ndevices))
-    for iu,u in enumerate(unique_devices):
-        locs = np.where(device_ids == u)[0]
-        device = procdata.device_lookup[u]
+    for iu,device_id in enumerate(unique_devices):
+        locs = np.where(device_ids == device_id)[0]
         for idx in range(nplots):
             w_mu = np.sum(importance_weights[locs,:,np.newaxis]*PREDICT[locs, :, :, idx], 1)
             w_var =  np.sum(importance_weights[locs,:,np.newaxis]*(PREDICT[locs, :, :, idx]**2 + STD[locs, :, :, idx]**2), 1) - w_mu**2
@@ -47,7 +47,7 @@ def plot_prediction_summary(procdata, names, times, OBS, PREDICT, PRECISIONS, de
 
             if iu == ndevices-1: ax[iu,idx].set_xlabel('Time (h)')
             if iu == 0: ax[iu,idx].set_title(names[idx])
-            if idx == 0: ax[iu,idx].set_ylabel(device)
+            if idx == 0: ax[iu,idx].set_ylabel(procdata.pretty_devices[device_id])
             pp.tight_layout()
             sns.despine()
 
@@ -128,43 +128,66 @@ def plot_weighted_theta(procdata, theta_names, TR_iws, TR_theta, TR_device_ids, 
     #g = g.map_offdiag(sns.sactter,  kind='hex' kwargs={})
     return g.fig
 
-def xval_species_summary(res, procdata, devices, pretty_devices, nplots, fixYaxis = False):
+def xval_species_summary(res, procdata, devices, nplots, fixYaxis = False, separatedInputs = False):
     '''Plot the simulated latent species'''    
     ndevices = len(devices)
-    colors = ['r','g']    
     fs = 14
     treat_max = np.max(res.treatments)
+    colors = 'grbcmyk'
     
     mus = []
+    mu_maxs = []
     maxs = []
     for idx in range(nplots):
         mus.append([])
+        mu_maxs.append([])
         maxs_i = []
-        for iu,u in enumerate(devices):
-            mus[idx].append([])
-            for i,color in enumerate(colors):
-                locs = np.where((res.devices == u) & (res.treatments[:,i] > 0.0))[0]        
+        for iu,device_id in enumerate(devices):
+            if separatedInputs is True:
+                mus[idx].append([])
+                mu_maxs[idx].append([])
+                for i, _ in enumerate(procdata.conditions):
+                    locs = np.where((res.devices == device_id) & (res.treatments[:,i] > 0.0))[0]
+                    mu = np.sum( res.importance_weights[locs,:,np.newaxis]*res.X_sample[locs, :, :, idx], 1)
+                    mus[idx][iu].append(mu)
+                    mu_maxs[idx][iu].append(np.max(mu))
+            else:
+                locs = np.where(res.devices == device_id)[0]
                 mu = np.sum( res.importance_weights[locs,:,np.newaxis]*res.X_sample[locs, :, :, idx], 1)
-                mus[idx][iu].append(mu)
-            maxs_i.append(np.max(mus[idx][iu]))
+                mus[idx].append(mu)
+                mu_maxs[idx].append(np.max(mu))
+            maxs_i.append(np.max(mu_maxs[idx]))
         maxs.append(np.max(maxs_i))
     
-    f, ax = pp.subplots(ndevices, nplots, sharex=True, sharey=True, figsize=(14, 2*ndevices) )
-    for iu,u in enumerate(devices):
+    f, axs = pp.subplots(ndevices, nplots, sharex=True, sharey=True, figsize=(14, 2*ndevices) )
+    for iu,device_id in enumerate(devices):
         for idx in range(nplots):
-            for i,color in enumerate(colors):
-                locs = np.where((res.devices == u) & (res.treatments[:,i] > 0.0))[0]
+            if ndevices is 1:
+                ax = axs[idx]
+            else:
+                ax = axs[iu,idx]
+            if separatedInputs is True:
+                for i,_ in enumerate(procdata.conditions):
+                    locs = np.where((res.devices == device_id) & (res.treatments[:,i] > 0.0))[0]
+                    for iloc,loc in enumerate(locs):
+                        alpha = res.treatments[loc,i] / treat_max
+                        ax.plot(res.times, mus[idx][iu][i][iloc].T/maxs[idx], '-', lw=1, alpha=alpha, color=colors[i] )
+            else:
+                locs = np.where(res.devices == device_id)[0]
                 for iloc,loc in enumerate(locs):
-                    alpha = res.treatments[loc,i] / treat_max
-                    ax[iu,idx].plot(res.times, mus[idx][iu][i][iloc].T/maxs[idx], '-', lw=1, alpha=alpha, color=color )
-            if fixYaxis: ax[iu,idx].set_ylim(-0.1,1.1)
+                    ax.plot(res.times, mus[idx][iu][iloc].T/maxs[idx], '-', lw=1, color='k' )
+            if fixYaxis: ax.set_ylim(-0.1,1.1)
             if iu == 0:
                 if idx < len(res.names): 
-                    ax[iu,idx].set_title(res.names[idx])
+                    ax.set_title(res.names[idx])
                 else:
-                    ax[iu,idx].set_title("Latent %d"%(idx-len(res.names)))
-            ax[iu,idx].set_xticks([0,4,8,12,16])
-        ax[iu,0].set_ylabel(pretty_devices[iu],labelpad=20,fontweight='bold',fontsize=fs)
+                    ax.set_title("Latent %d"%(idx-len(res.names)))
+            ax.set_xticks([0,4,8,12,16])
+        if ndevices is 1:
+            ax = axs[0]
+        else:
+            ax = axs[iu,0]
+        ax.set_ylabel(procdata.pretty_devices[device_id], labelpad=20, fontweight='bold', fontsize=fs)
     sns.despine()
     pp.tight_layout()            
         
@@ -172,11 +195,14 @@ def xval_species_summary(res, procdata, devices, pretty_devices, nplots, fixYaxi
     f.add_subplot(111, frameon=False)
     pp.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
     pp.xlabel("Time (h)", fontsize=fs, labelpad=7)
-    pp.ylabel("Normalized output", fontsize=fs, labelpad=7)
+    if ndevices > 1:
+        pp.ylabel("Normalized output", fontsize=fs, labelpad=0)
+    else:
+        pp.ylabel("Norm. output", fontsize=fs, labelpad=0)
     
     return f
 
-def xval_treatments(res, data, devices, pretty_devices):
+def xval_treatments(res, data, devices):
     '''Compare the final simulated points against the equivalent data-points to establish functional response'''
     nplots = len(data.signals)
     ndev = len(devices)
@@ -185,86 +211,105 @@ def xval_treatments(res, data, devices, pretty_devices):
     fs = 14
     obs_mk = 'x'
     pred_mk = 'o'
-    colors = ['g','r']
-    edges = ['darkgreen','darkred']
-    c6_idx = 1
-    c12_idx = 0     
-
-    f, ax = pp.subplots(ndev, nplots, sharex=True, sharey=True, figsize=(9, 2.2*ndev))    
-    for iu,u in enumerate(devices):        
-        locs = np.where(res.devices == u)[0]        
-        C6                 = np.exp(res.treatments[:,c6_idx])-1
-        C12                = np.exp(res.treatments[:,c12_idx])-1
-        device_C6          = C6[locs]
-        device_C12         = C12[locs]
+    colors = ['g','r','b']
+    edges = ['darkgreen','darkred','darkblue']
+    
+    f, axs = pp.subplots(ndev, nplots, sharex=True, sharey=True, figsize=(9, 2.2*ndev))    
+    for iu,device_id in enumerate(devices):        
+        locs = np.where(res.devices == device_id)[0]
+        input_values = []
+        for ci, _ in enumerate(data.conditions):
+            vs = np.exp(res.treatments[:,ci])-1
+            input_values.append(vs[locs])
         device_OBS         = np.transpose(res.X_obs[locs,-1,:],[1,0])
         device_IW          = res.importance_weights[locs]
         device_PREDICT     = np.transpose(res.PREDICT[locs,:],[2,0,1])
         device_STD         = np.transpose(res.STD[locs,:],[2,0,1])
 
-        for j,signal in enumerate(data.signals):           
+        for j,signal in enumerate(data.signals):
+            if ndev > 1:
+                ax = axs[iu,j]
+            else:
+                ax = axs[j]
             mu  = np.sum(device_IW*device_PREDICT[j], 1)
             std = np.sqrt(np.sum(device_IW*(device_PREDICT[j]**2 + device_STD[j]**2 ), 1) - mu**2)
-            
-            ax[iu,j].errorbar( device_C6, mu, yerr=std, fmt=pred_mk, ms=ms, lw=1, mec=edges[0], color=colors[0],zorder=0)
-            ax[iu,j].semilogx( device_C6, device_OBS[j], 'k'+obs_mk, ms=ms, lw=1, color=edges[0], zorder=20)
-            ax[iu,j].errorbar( device_C12, mu, yerr=std, fmt=pred_mk, ms=ms, lw=1, mec=edges[1], color=colors[1], zorder=10)
-            ax[iu,j].semilogx( device_C12, device_OBS[j], 'k'+obs_mk, ms=ms, lw=1, color=edges[1], zorder=30)
-
-            ax[iu,j].set_ylim(-0.1,1.1)
-            ax[iu,j].tick_params(axis='both', which='major', labelsize=fs)
-            ax[iu,j].set_xticks(np.logspace(0,4,3))
-        
-        ax[iu,0].set_ylabel(pretty_devices[iu], labelpad=25, fontweight='bold', fontsize=fs)
-    for j in range(nplots):
-        ax[0,j].set_title(signal,fontsize=fs)
-
+            for ci, cvalues in enumerate(input_values):
+                ax.errorbar( cvalues, mu, yerr=std, fmt=pred_mk, ms=ms, lw=1, mec=edges[ci], color=colors[ci], zorder=ci)
+                ax.semilogx( cvalues, device_OBS[j], 'k'+obs_mk, ms=ms, lw=1, color=edges[ci], zorder=ci+20)
+            ax.set_ylim(-0.1,1.1)
+            ax.tick_params(axis='both', which='major', labelsize=fs)
+            ax.set_xticks(np.logspace(0,4,3))
+            if j is 0: 
+                ax.set_ylabel(data.pretty_devices[iu], labelpad=25, fontweight='bold', fontsize=fs)
+            if iu is 0: 
+                ax.set_title(signal,fontsize=fs)
+    
+    # Add legend to one of the panels
     if (ndev>1):
         ytext = "Normalized fluorescence"
+        ax = axs[0,nplots-1]
     else:
         ytext = "Norm. fluorescence"
+        ax = axs[nplots-1]
+    dstr = list(map(lambda s: s + " (data)", data.conditions)) 
+    mstr = list(map(lambda s: s + " (model)", data.conditions))    
+    ax.legend(labels=dstr + mstr)
+    
     # Global axis labels: add a big axis, then hide frame
     f.add_subplot(111, frameon=False)
     pp.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
-    pp.xlabel("C$_6$ / C$_{12}$ (nM)", fontsize=fs, labelpad=7)
+    pp.xlabel(' / '.join(data.conditions), fontsize=fs, labelpad=7)
+    #pp.xlabel("C$_6$ / C$_{12}$ (nM)", fontsize=fs, labelpad=7)
     pp.ylabel(ytext, fontsize=fs, labelpad=7)
-    ax[0,nplots-1].legend(labels=['C$_6$ (data)','C$_{12}$ (data)','C$_6$ (model)','C$_{12}$ (data)'])
     sns.despine()
     
     return f
 
-def xval_fit_summary(res, data, device):
+def xval_fit_summary(res, device_id, separatedInputs=False):
     '''Summary plot of model-data fit for cross-validation results'''
-    nplots = res.X_post_sample.shape[-1]    
     prec = res.precisions
     stdev = 1.0 / np.sqrt(prec)
-    titles = ['C$_{12}$ dilution', 'C$_6$ dilution']
-    u = data.device_map[device]
-
+    nplots = res.X_post_sample.shape[-1]
     fs = 14
-    f, ax = pp.subplots(2, nplots, sharex=True, sharey=True, figsize=(2.2*nplots, 4.4))
-    for i in range(2):
-        all_locs = np.where((res.devices == u) & (res.treatments[:, i] > 0.0))[0]
-        _, indices = np.unique(res.treatments[all_locs, i], return_index=True)
-        locs = all_locs[indices]
+    
+    all_locs = []
+    if separatedInputs is True:
+        nrows = len(res.conditions)
+        for i in range(nrows):
+            dev_locs = np.where((res.devices == device_id) & (res.treatments[:, i] > 0.0))[0]
+            _, indices = np.unique(res.treatments[dev_locs, i], return_index=True)
+            all_locs.append(dev_locs[indices])
+        f, axs = pp.subplots(nrows, nplots, sharex=True, sharey=True, figsize=(2.2*nplots, 1.6*nrows+1.2))
+    else:
+        nrows = 1
+        dev_locs = np.where(res.devices == device_id)[0]
+        _, indices = np.unique(res.treatments[dev_locs, :], return_index=True, axis=0)
+        all_locs.append(dev_locs[indices])
+        f, axs = pp.subplots(1, nplots, sharey=True, figsize=(2.2*nplots, 2.8))
+    
+    for i, locs in enumerate(all_locs):
         colors = [ cmx.rainbow(x) for x in np.linspace(0, 1, np.shape(locs)[0]) ]
         for idx in range(nplots):
             w_mu = np.sum(res.importance_weights[locs, :, np.newaxis] * res.X_post_sample[locs, :, :, idx], 1)
             w_var =  np.sum(res.importance_weights[locs, :, np.newaxis] * (res.X_post_sample[locs, :, :, idx]**2 + stdev[locs, :, :, idx]**2), 1) - w_mu**2
             w_std = np.sqrt(w_var)
 
-            ax[i,idx].set_prop_cycle('color', colors)
+            if nrows > 1:
+                ax = axs[i,idx]
+            else:
+                ax = axs[idx]
+            ax.set_prop_cycle('color', colors)
             for mu, std in zip(w_mu, w_std):
-                ax[i,idx].fill_between(res.times, mu-2*std, mu+2*std, alpha=0.1)
-            ax[i,idx].plot(res.times, res.X_obs[locs, :, idx].T, '.', alpha=1, markersize=2)
-            ax[i,idx].plot(res.times, w_mu.T, '-', lw=2, alpha=0.75)
-            ax[i,idx].set_xlim(0.0, 17)
-            ax[i,idx].set_xticks([0, 5, 10, 15])
-            ax[i,idx].set_ylim(-0.2, 1.2)
-            if idx == 0:
-                ax[i,idx].set_ylabel(titles[i], labelpad=25, fontweight='bold', fontsize=fs)
-    for idx in range(nplots):
-        ax[0,idx].set_title(res.names[idx], fontsize=fs)          
+                ax.fill_between(res.times, mu-2*std, mu+2*std, alpha=0.1)
+            ax.plot(res.times, res.X_obs[locs, :, idx].T, '.', alpha=1, markersize=2)
+            ax.plot(res.times, w_mu.T, '-', lw=2, alpha=0.75)
+            ax.set_xlim(0.0, 17)
+            ax.set_xticks([0, 5, 10, 15])
+            ax.set_ylim(-0.2, 1.2)
+            if (idx == 0) & (nrows > 1):
+                ax.set_ylabel(res.conditions[i] + " dilution", labelpad=25, fontweight='bold', fontsize=fs)
+            if i == 0:
+                ax.set_title(res.names[idx], fontsize=fs)          
 
     # Global axis labels: add a big axis, then hide frame
     f.add_subplot(111, frameon=False)
@@ -276,7 +321,7 @@ def xval_fit_summary(res, data, device):
 
     return f
 
-def xval_fit_individual(res, data, u):
+def xval_fit_individual(res, device_id):
     nplots = res.X_post_sample.shape[-1]
     colors = ['tab:gray','r','y','c']
     PREC = res.precisions
@@ -285,7 +330,7 @@ def xval_fit_individual(res, data, u):
     fs = 14
     both_locs = []
     for col in range(2):
-        all_locs = np.where((res.devices == u) & (res.treatments[:,1-col] > 0.0))[0]
+        all_locs = np.where((res.devices == device_id) & (res.treatments[:,1-col] > 0.0))[0]
         indices = np.argsort(res.treatments[all_locs,1-col])
         both_locs.append(all_locs[indices])
 
@@ -344,7 +389,7 @@ def xval_fit_individual(res, data, u):
 
     return f
 
-def combined_treatments(procdata, results, devices, pretty_devices):
+def combined_treatments(procdata, results, devices):
     '''Compare model-data functional responses to inputs for multiple models'''
     ndev = len(devices)
     nres = len(results)
@@ -365,16 +410,16 @@ def combined_treatments(procdata, results, devices, pretty_devices):
     ids = [2,3]
     colors = ['y','c']
     f, ax = pp.subplots(ndev, 2*nres, sharex=True, figsize=(9, 2.2*ndev+0.5))
-    for iu,u in enumerate(devices):
+    for iu,device_id in enumerate(devices):
         if ndev==1:
             row = ax
             ytext = "Norm. fluorescence"
         else:
             row = ax[iu]
             ytext = "Normalized fluorescence"
-        row[0].set_ylabel(pretty_devices[iu], labelpad=25, fontweight='bold', fontsize=fs)
+        row[0].set_ylabel(procdata.pretty_devices[iu], labelpad=25, fontweight='bold', fontsize=fs)
         for ir,res in enumerate(results):
-            locs = np.where(res.devices == u)[0]
+            locs = np.where(res.devices == device_id)[0]
             OBS = np.transpose(res.X_obs[locs,-1,:],[1,0])
             IW = res.importance_weights[locs]
             PREDICT = np.transpose(res.PREDICT[locs,:],[2,0,1])
@@ -414,6 +459,104 @@ def combined_treatments(procdata, results, devices, pretty_devices):
         pp.xlabel(xlabel, fontsize=fs, labelpad=10)
         pp.ylabel(ytext, fontsize=fs, labelpad=8)
     
+    sns.despine()
+
+    return f
+
+def xval_variable_parameters(res, ncols=2):
+    ndata = len(res.ids)
+    qs = dict(zip(res.q_names, res.q_values))
+    
+    devices = np.unique(res.devices)
+    indexes = np.unique([n.split('.')[0] for n in res.q_names], return_index=True)[1]
+    all_ps = [[n.split('.')[0] for n in res.q_names][index] for index in sorted(indexes)]
+    
+    ps = []
+    for i,p in enumerate(all_ps):
+        if np.shape(qs[p + '.mu'])[0] == ndata:
+            ps.append(p)
+    print(ps)
+    
+    if utils.is_empty(ps):
+        print("- No variables parameters: not producing plot")
+        return
+    
+    # Define data and device-dependent colours
+    cdict = dict(zip(devices, sns.color_palette()))
+    
+    # Define geometry and figures
+    nrows = np.ceil(len(ps) / ncols).astype(int)
+    f, axs = pp.subplots(nrows, ncols, sharex=True, figsize=(6*ncols,2*nrows))
+    f.suptitle('Local parameters', fontsize=14)
+    for i in range(nrows):
+        for j in range(ncols):
+            if nrows > 1:
+                ax = axs[i,j]
+            else:
+                ax = axs[j]
+            if (j+i*ncols) < len(ps):
+                name = ps[j+i*ncols]
+                for di in devices:
+                    locs = np.where(res.devices == di)
+                    ax.errorbar(res.ids[locs], qs['%s.mu'%name][locs], 1 / qs['%s.prec'%name][locs], fmt='.', color=cdict[di])
+                    ax.set_title(name)
+                if i == (nrows-1):
+                    ax.set_xlabel('Data instance')
+            else:
+                if i > 0:
+                    axs[i-1,j].set_xlabel('Data instance')
+                ax.set_visible(False)            
+        if nrows > 1:
+            axs[i,0].set_ylabel('Parameter value')
+        else:
+            axs[0].set_ylabel('Parameter value')
+    f.tight_layout(rect=(0,0,1,0.97))
+    sns.despine()
+
+    return f
+
+def xval_global_parameters(res, ncols=6):
+    ndata = len(res.ids)
+    nfolds = len(res.chunk_sizes)
+    qs = dict(zip(res.q_names, res.q_values))
+    
+    indexes = np.unique([n.split('.')[0] for n in res.q_names], return_index=True)[1]
+    all_ps = [[n.split('.')[0] for n in res.q_names][index] for index in sorted(indexes)]    
+    ps = []
+    for i,p in enumerate(all_ps):
+        if np.shape(qs[p + '.mu'])[0] < ndata:
+            ps.append(p)
+    
+    if utils.is_empty(ps):
+        print("- No global parameters: not producing plot")
+        return
+    
+    # Define geometry and figures
+    nrows = np.ceil(len(ps) / ncols).astype(int)
+    f, axs = pp.subplots(nrows, ncols, figsize=(12,2*nrows))
+    f.suptitle('Global parameters', fontsize=14)
+    for i in range(nrows):
+        for j in range(ncols):
+            if nrows > 1:
+                ax = axs[i,j]
+            else:
+                ax = axs[j]
+            if (j+i*ncols) < len(ps):
+                name = ps[j+i*ncols]
+                ax.errorbar(np.linspace(1,nfolds,nfolds),qs['%s.mu'%name], 1 / qs['%s.prec'%name], fmt='.')
+                ax.set_title(name)
+                ax.set_xlim([0.5, nfolds + 0.5])
+                if i == (nrows-1):
+                    ax.set_xlabel('Fold')
+            else:
+                if i > 0:
+                    axs[i-1,j].set_xlabel('Fold')
+                ax.set_visible(False)
+        if nrows > 1:
+            axs[i,0].set_ylabel('Parameter value')
+        else:
+            axs[0].set_ylabel('Parameter value')
+    f.tight_layout(rect=(0,0,1,0.96))
     sns.despine()
 
     return f

@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 import datetime
 import io
@@ -11,18 +11,30 @@ import yaml
 import tensorflow as tf
 
 def get_data_directory():
-    """ Returns directory where observation datasets are stored """
+    """ 
+    Returns directory where observation datasets are stored (default: "data") 
+    """
     data_dir = os.getenv('INFERENCE_DATA_DIR')
     if data_dir:
         return data_dir
-    raise ValueError("INFERENCE_DATA_DIR not defined")
-
+    else: 
+        return "data"
+    
 def get_results_directory():
-    """ Returns mount directory of remote machine on local, where inference results are to be stored """
+    """ 
+    Returns mount directory of remote machine on local, where inference results are to be stored (default: "results") 
+    """
     results_dir = os.getenv('INFERENCE_RESULTS_DIR')
     if results_dir:
         return results_dir
-    raise ValueError("INFERENCE_RESULTS_DIR not defined")
+    else:
+        return "results"
+
+def is_empty(a):
+    if a:
+        return False
+    else:
+        return True
 
 def variable_summaries(var, name):
     """ Attach summaries to a scalar node using Tensorboard """
@@ -36,10 +48,10 @@ def variable_summaries(var, name):
         tf.summary.scalar('min', tf.reduce_min(var))
         tf.summary.histogram('histogram', var)
 
-def make_summary_image_op(fig, tag, image_format='png'):
+def make_summary_image_op(fig, tag, scope, image_format='png'):
     buf = fig_to_byte_buffer(fig, image_format=image_format)
     summary_image = tf.Summary.Image(encoded_image_string=buf.getvalue())
-    return tf.Summary(value=[tf.Summary.Value(tag=tag, image=summary_image)])
+    return tf.Summary.Value(tag='%s/%s'%(scope,tag), image=summary_image)
 
 def fig_to_byte_buffer(fig, image_format='png'):
     buf = io.BytesIO()

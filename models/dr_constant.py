@@ -1,16 +1,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 from models.base_model import BaseModel, log_prob_gaussian
-from utils import default_get_value
+from src.utils import default_get_value
 import tensorflow as tf
 import numpy as np
 import pdb
 
 class DR_Constant(BaseModel):
 
-    def init_with_params(self, params):
-        super(DR_Constant, self).init_with_params(params)
+    def init_with_params(self, params, relevance):
+        super(DR_Constant, self).init_with_params(params, relevance)
         # do the other inits now
         self.use_aRFP = default_get_value(params, "use_aRFP", False)
         self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F510', 'F430', 'LuxR', 'LasR']
@@ -28,13 +28,12 @@ class DR_Constant(BaseModel):
     def gen_reaction_equations(self, theta, treatments, dev_1hot, condition_on_device=True):
 
         n_iwae = tf.shape(theta.aR)[1]
-        n_batch = tf.shape(theta.aR)[0]
 
         # tile treatments, one per iwae sample
         treatments_transformed = tf.clip_by_value(tf.exp(treatments) - 1.0, 0.0, 1e6)
-        c12a, c6a = tf.unstack(treatments_transformed, axis=1)
-        c12 = tf.tile(tf.expand_dims(c12a, axis=1), [1, n_iwae])
+        c6a, c12a = tf.unstack(treatments_transformed, axis=1)
         c6 = tf.tile(tf.expand_dims(c6a, axis=1), [1, n_iwae])
+        c12 = tf.tile(tf.expand_dims(c12a, axis=1), [1, n_iwae])
 
         # need to clip these to avoid overflow
         r = tf.clip_by_value(theta.r, 0.0, 5.0)
@@ -69,6 +68,7 @@ class DR_Constant(BaseModel):
 
         # condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
         # currently, f is a one-layer MLP with NO activation function (e.g., offset and scale only)
+        # TODO(ndalchau): This extraction of aR and aS from the same 1hot vector cannot be correct.
         if condition_on_device:
             #print("*** I'm conditioning!")
             aR = self.device_conditioner(theta.aR, 'aR', dev_1hot)

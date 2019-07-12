@@ -1,8 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 import numpy as np
-from inference.distributions import TfDirac, TfKumaraswamy, TfLogNormal, TfNormal, TfTruncatedNormal
+from distributions import TfDirac, TfKumaraswamy, TfLogNormal, TfNormal, TfTruncatedNormal
 from utils import default_get_value
 
 class DistributionDescription(object):

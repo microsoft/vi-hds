@@ -1,16 +1,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 from models.base_model import BaseModel
-from utils import default_get_value
+from src.utils import default_get_value
 import tensorflow as tf
 import numpy as np
 import pdb
 
 class DR_HierarchicalBlackbox( BaseModel ):
     
-    def init_with_params( self, params ):
-        super(DR_HierarchicalBlackbox, self).init_with_params( params )
+    def init_with_params( self, params, relevance ):
+        super(DR_HierarchicalBlackbox, self).init_with_params( params, relevance )
         # do the other inits now
         self.n_x = params['n_x']
         self.n_y = params['n_y']

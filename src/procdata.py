@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 import os
 
@@ -25,14 +25,14 @@ def split_by_train_val_ids(data_dct, train_ids, val_ids):
     val_query = np.zeros(number_of_ids, dtype=bool)
     train_query[train_ids] = True
     val_query[val_ids] = True
-    d_val = extract_by_ids(data_dct, val_query)
     d_train = extract_by_ids(data_dct, train_query)
+    d_val = extract_by_ids(data_dct, val_query)
     return d_train, d_val
 
 def split_holdout_device(procdata, data_dct, holdout):
     c_panda = pd.DataFrame(data_dct['C']['values'],
                            columns=data_dct['C']['columns'])
-    devices = c_panda['Device'].values.astype(np.float32).astype(int)
+    devices = c_panda['Device'].values.astype(int)
     holdout_device_id = procdata.device_map[holdout]
     val_query = devices == holdout_device_id
     train_query = devices != holdout_device_id
@@ -65,7 +65,7 @@ def merge(dic1, dic2):
     '''
     return OrderedDict(dic1, **dic2)
 
-def expand_conditions(conds: List[OrderedDict]):
+def expand_conditions(treatments: List[OrderedDict], conditions):
     '''
     Given a list of "conds", returns a list of dicts, each of which
     is the corresponding member of "conds" expanded with "key: 0.0" members
@@ -73,11 +73,20 @@ def expand_conditions(conds: List[OrderedDict]):
     '''
     # Establish all treatments
     zero = OrderedDict()
-    for cond in conds:
-        for key in cond:
-            zero[key] = 0.0
-            # Now fill each condition
-    return [merge(zero, cond) for cond in conds]
+    for cond in conditions:
+        zero[cond] = 0.0
+        # Now fill each condition
+    return np.array([merge(zero, tr) for tr in treatments])
+
+def find_conditions(expanded, conditions):
+    '''
+    Returns the indices of expanded that only have zero values for unspecified conditions.
+    '''
+    treatments = list(expanded[0].keys())
+    removes = list(set(treatments) - set(conditions))
+    locs = [i for i,ex in enumerate(expanded) if all([ex[r]==0.0 for r in removes])]
+    filtered = [OrderedDict((k, ex[k]) for k in conditions) for ex in expanded[locs]]
+    return locs, filtered
 
 def extract_signal(s):
     '''
@@ -155,32 +164,57 @@ def merge_files(d1, d2):
          }
     return ds
 
+def onehot(i,n):
+    '''One-hot vector specifiying position i, with length n'''
+    v = np.zeros((n))
+    if i is not None:
+        v[i] = 1
+    return v
+
+def depth(group_values):
+    return len(set([g for g in group_values if g is not None]))
+    
 class ProcData:
     '''
     Class for data-handling methods that are specific to a particular type of experiment.
     Currently this is just the double-receiver experiment, but in future we may generalize
     it, either by subclassing or by handing over parameters to the constructor.
     '''
-    def __init__(self):
+    def __init__(self, data):
         # Measurable output signals: optical density and three fluorescent proteins.
-        self.signals = ['OD', 'mRFP1', 'EYFP', 'ECFP']
+        self.signals = data["signals"]
         # The different devices we work with
-        self.device_names = ['EC10G', 'PLPL', 'Pcat_Y81C76', 'RS100S32_Y81C76', 'RS100S34_Y81C76',
-                             'R33S32_Y81C76', 'R33S34_Y81C76', 'R33S175_Y81C76']
-        # LuxR components. We could call this luxr_rbs_map if we wanted to be more specific.
-        self.r_component_map = OrderedDict(zip(self.device_names, [0, 1, 2, 3, 3, 4, 4, 5]))
-        self.n_r_components = len(set(self.r_component_map.values()))
-        # LasR components. We could call this lasr_rbs_map if we wanted to be more specific.
-        self.s_component_map = OrderedDict(zip(self.device_names, [0, 1, 2, 3, 4, 3, 4, 5]))
-        self.n_s_components = len(set(self.s_component_map.values()))
+        self.device_names = data["devices"]
+        self.pretty_devices = data["pretty_devices"]
+        # Conditions (inputs)
+        self.conditions = data["conditions"]
+        # Files to be loaded
+        self.files = data["files"]
+        # Group-level parameter assignments for each device
+        groups_list = [ [k,v] for k, v in data["groups"].items()]
+        self.component_maps = OrderedDict()
+        for k, group in groups_list:
+            self.component_maps[k] = OrderedDict(zip(self.device_names, group)) 
+        # Total number of group-level parameters        
+        self.device_depth = sum([depth(cm.values()) for k, cm in self.component_maps.items()])
+        # Relevance vectors for decoding multi-hot vector into multiple one-hot vectors
+        self.relevance_vectors = OrderedDict()
+        k1 = 0
+        for k, group in groups_list:
+            k2 = depth(group) + k1
+            rv = np.zeros(self.device_depth)
+            rv[k1:k2] = 1.0
+            #print("Relevance for %s: "%k + str(rv))
+            self.relevance_vectors[k] = rv
+            k1 = k2
         # Manually curated device list: map from device names to 0.0, 1.0, ...
         self.device_map = dict(zip(self.device_names, (float(v) for v in range(len(self.device_names)))))
         # Map from device indices (as ints) to device names
         self.device_idx_to_device_name = dict(enumerate(self.device_names))
         # Map from device indices (as floats) to device names
         self.device_lookup = {v: k for k, v in self.device_map.items()}
-
-    def load_all(self, data_dir: str, data_files: List[str], devices: List[str]) -> Dict[str, Any]:
+        
+    def load_all(self, data_dir) -> Dict[str, Any]:
         '''
         Arguments:
           data_dir: a directory path
@@ -199,9 +233,9 @@ class ProcData:
                                              these three values describe a condition.
             'Time'          numpy array of float, shape (T), hours into experiment.
         '''
-        loaded = [self.load_multiple(data_dir, file, devices) for file in data_files]
-        filtered = [loaded[i] for i in range(len(loaded)) if loaded[i] is not None]
-        data = reduce(merge_files, filtered)
+        loaded = [self.load_multiple(data_dir, file, self.device_names, self.conditions) for file in self.files]
+        filter_nonempty = [loaded[i] for i in range(len(loaded)) if loaded[i] is not None]
+        data = reduce(merge_files, filter_nonempty)
         return data
 
     def get_cassettes(self, devices):
@@ -212,36 +246,35 @@ class ProcData:
         component indices taken from S components then R components.
         Each row of the matrix is a cassette.
         '''
-        # Devices crossed with S and R components respectively
-        s_matrix = np.zeros((len(devices), self.n_s_components))
-        r_matrix = np.zeros((len(devices), self.n_r_components))
-        for idx, d in enumerate(devices):
+        rows = []
+        for d in devices:
             device_name = self.device_idx_to_device_name[d]
-            s_value = self.s_component_map[device_name]
-            r_value = self.r_component_map[device_name]
-            s_matrix[idx, s_value] = 1
-            r_matrix[idx, r_value] = 1
-        return np.hstack((s_matrix, r_matrix))
+            vs = [onehot(cm[device_name], depth(cm.values())) for p, cm in self.component_maps.items()]
+            rows.append(np.hstack(vs))
+            #r_matrix[idx, r_value] = 1
+        return np.array(rows)
 
     def add_default_device(self, cassettes, device_name):
-        s_value = self.s_component_map[device_name]
-        r_value = self.r_component_map[device_name]
-        for cass in cassettes:
-            cass[s_value] = 1
-            # add n_s_components as horizontal offset
-            cass[r_value + self.n_s_components] = 1
-        return cassettes
+        raise NotImplementedError("Default device not implemented")
+    #     values = np.cumsum([cm[device_name] for k,cm in self.component_maps.items()])
+    #     #s_value = self.s_component_map[device_name]
+    #     #r_value = self.r_component_map[device_name]
+    #     for cass in cassettes:
+    #         cass[s_value] = 1
+    #         # add n_s_components as horizontal offset
+    #         cass[r_value + self.n_s_components] = 1
+    #     return cassettes
 
     def process_row(self, row, headers):
         return [row.iloc[headers == signal].values for signal in self.signals]
 
-    def load(self, data_dir, data_file, device):
+    def load(self, data_dir, data_file, device, conditions):
         '''
         As for load_multiple, but with a single device
         '''
-        return self.load_multiple(data_dir, data_file, [device])
+        return self.load_multiple(data_dir, data_file, [device], conditions)
 
-    def load_multiple(self, data_dir, data_file, devices):
+    def load_multiple(self, data_dir, data_file, devices, conditions):
         '''
         data_dir, data_file: directory and basename which together point to a csv file,
           with header, consisting of:
@@ -271,24 +304,24 @@ class ProcData:
             return None  # flag value to indicate the dataset doesn't exist in this file
 
         # As treatment_values, but each OrderedDict additionally has the keys that the others have, with value 0.0.
-        expanded = expand_conditions(treatment_values)
+        expanded = expand_conditions(treatment_values, conditions)
 
-        # Separate the keys and the values
-        treatments = list(expanded[0].keys())
-        values = np.array([list(cond.values()) for cond in expanded])
+        # Filter out time-series that have nonzero values for unspecified conditions
+        devices_conditions = ["Device"] + conditions
+        locs,filtered = find_conditions(expanded, devices_conditions)
+        values = np.array([list(cond.values()) for cond in filtered])
 
-        observations = rows.iloc[:, 5:]
+        observations = rows.iloc[locs, 5:]
         headers = np.array([v.split('.')[0] for v in observations.columns.values])
         header_signals = np.array([extract_signal(h) for h in headers])
         times = timesall.iloc[header_signals == 'OD'].values
 
-        x_values = np.transpose(np.array([self.process_row(row, header_signals) for idx, row in observations.iterrows()]),
-                                (0, 2, 1))
+        x_values = [self.process_row(row, header_signals) for idx, row in observations.iterrows()]
 
-        d = {'C': {'columns': treatments, 'values': values},
+        d = {'C': {'columns': devices_conditions, 'values': values},
              'Observations': self.signals,
              # 'R': {'columns': ['Replicate'], 'values': np.expand_dims(rep, axis=1)}
              'Time': times,
-             'X': x_values
+             'X': np.transpose(np.array(x_values),(0, 2, 1))
             }
         return d

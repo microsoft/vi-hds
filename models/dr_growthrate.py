@@ -1,8 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
-from models.base_model import BaseModel
-from utils import default_get_value
+from src.utils import default_get_value
+from models.dr_constant import DR_Constant
 import tensorflow as tf
 import numpy as np
 
@@ -10,8 +10,6 @@ class DR_Growth( DR_Constant ):
     
     def gen_reaction_equations( self, theta, treatments, dev_1hot, condition_on_device=True ):
         n_iwae = tf.shape( theta.aR )[1]  
-        n_batch = tf.shape( theta.aR )[0]
-        dev_1hot_rep = tf.tile( dev_1hot, [n_iwae, 1] )
         treatments_transformed = tf.clip_by_value(tf.exp(treatments) - 1.0, 0.0, 1e6)
         c12a, c6a = tf.unstack(treatments_transformed, axis=1)
         c12 = tf.tile( tf.expand_dims(c12a,axis=1), [1,n_iwae] )
@@ -56,8 +54,6 @@ class DR_Growth( DR_Constant ):
         else:
             aR = theta.aR
             aS = theta.aS
-
-        # import pdb; pdb.set_trace()
 
         def reaction_equations( state, t ):
             x,rfp,yfp,cfp,f510,f430,luxR,lasR = tf.unstack( state, axis=2 ) 

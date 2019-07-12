@@ -1,9 +1,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 data:
   devices: ['Pcat_Y81C76','RS100S32_Y81C76','RS100S34_Y81C76','R33S32_Y81C76','R33S34_Y81C76','R33S175_Y81C76']
+  pretty_devices: ['Pcat-Pcat','R100-S32','R100-S34','R33-S32','R33-S34','R33-S175']
+  groups:
+    aR: [0, 1, 1, 2, 2, 2]  # LuxR RBS
+    aS: [0, 1, 2, 1, 2, 3]  # LasR RBS
   files: ['proc140916.csv','proc140930.csv','proc141006.csv','proc141021.csv','proc141023.csv','proc141028.csv']
+  signals: ["OD", "mRFP1", "EYFP", "ECFP"]
+  conditions: ["C6","C12"]
+  plotSeparatedConditions: true
 
 params:
   model: !!python/object:models.dr_blackbox_hierarchical.DR_HierarchicalBlackbox {}

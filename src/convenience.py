@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 from __future__ import absolute_import
 from typing import Any, Dict, List, Optional
@@ -11,22 +11,16 @@ import pandas as pd
 import tensorflow as tf
 
 # Local imports
-from data import procdata
-from inference.distributions import ChainedDistribution
-from inference.encoders import ConditionalConvolutionalEncoder
-from inference.decoders import ODEDecoder
-from inference.distributions import (build_q_local,
-                                         build_q_global,
-                                         build_q_global_cond,
-                                         build_p_local,
-                                         build_p_global,
-                                         build_p_global_cond)
-from inference.vi import GeneralLogImportanceWeights
+import procdata
+from encoders import ConditionalConvolutionalEncoder
+from decoders import ODEDecoder
+from distributions import ChainedDistribution, build_q_local, build_q_global, build_q_global_cond, build_p_local, build_p_global, build_p_global_cond
+from vi import GeneralLogImportanceWeights
 from utils import default_get_value
 
 class Dataset(object):
 
-    def __init__(self, D: OrderedDict, original_data_ids: List[int], conditions: Optional[List[str]] = None,
+    def __init__(self, data, D: OrderedDict, original_data_ids: List[int],
                  use_default_device: bool = False, default_device: str = 'Pcat_Y81C76'):
         '''
         :param D: OrderedDict with keys 'X', 'C', 'Observations' and 'Time'
@@ -35,18 +29,16 @@ class Dataset(object):
         :param use_default_device:
         :param default_device:
         '''
-        self.procdata = procdata.ProcData()
+        self.procdata = procdata.ProcData(data)
         # Data dictionary
         self.D = D
         # List of conditions (strings)
-        self.conditions = conditions or ['C12', 'C6']
+        self.conditions = data["conditions"]
         # Number of conditions
         self.n_conditions = len(self.conditions)
         # Whether to use the default device, and what it is
         self.use_default_device = use_default_device
         self.default_device = default_device
-        # Number of parameters in device? TODO(dacart) verify
-        self.device_depth = self.procdata.n_s_components + self.procdata.n_r_components
         # Keep track of which ids from the original data this dataset comes from
         self.original_data_ids = original_data_ids
         # Numpy array of float, shape e.g. (234,86,4)
@@ -60,8 +52,7 @@ class Dataset(object):
         self.treatments = np.log(1.0 + self.treatments)
         self.n_treatments = len(self.treatments)
         # Numpy array of float, shape e.g. (234,)
-        # TODO(dacart) why is this converted from float64 to float32 then to int?
-        self.devices = c_panda['Device'].values.astype(np.float32).astype(int)
+        self.devices = c_panda['Device'].values.astype(int)
         # more numpy data
         # Numpy array of float, shape e.g. (234,86,3)
         self.delta_X = np.diff(self.X, axis=-1)
@@ -71,7 +62,7 @@ class Dataset(object):
 
     #     ONE-HOT ENCODING OF DEVICE ID        #
     def prepare_devices(self, use_default_device):
-        self.dev_1hot = np.zeros((self.size(), self.device_depth))
+        self.dev_1hot = np.zeros((self.size(), self.procdata.device_depth))
         self.dev_1hot = self.procdata.get_cassettes(self.devices)
         if use_default_device:
             print("Adding Default device: %s")
@@ -138,7 +129,8 @@ class Encoder:
         # DotOperatorSamples
         self.theta = self.q.sample(placeholders.u, verbose)  # return a dot operating theta
         # List of (about 30) strings
-        self.theta_names = self.theta.keys
+        #self.theta_names = self.theta.keys
+        self.theta_names = self.q.get_theta_names()
         if verbose:
             print('THETA ~ Q')
             print(self.theta)
@@ -166,9 +158,9 @@ class Encoder:
         return p_vals.concat("p")
 
     @classmethod
-    def set_up_q(cls, verbose, parameters, placeholders, x_delta_obs):
+    def set_up_q(self, verbose, parameters, placeholders, x_delta_obs):
         encode = ConditionalConvolutionalEncoder(parameters.params_dict)
-        approx_posterior_params = encode(placeholders.x_obs, x_delta_obs, placeholders.dev_1hot, placeholders.conds_obs)
+        approx_posterior_params = encode(x_delta_obs)
         q_vals = LocalAndGlobal(
             # q: local, based on amortized neural network
             build_q_local(parameters, approx_posterior_params, placeholders.dev_1hot, placeholders.conds_obs, verbose,
@@ -185,15 +177,16 @@ class Encoder:
 class SessionVariables:
     """Convenience class to hold the output of one of the Session.run calls used in training."""
     def __init__(self, seq):
-        """seq: a sequence of 8 or 9 elements."""
-        assert len(seq) == 8 or len(seq) == 9
+        """seq: a sequence of 9 or 10 elements."""
+        n = 9
+        assert len(seq) == n or len(seq) == (n+1)
         (self.log_normalized_iws, self.normalized_iws, self.normalized_iws_reshape,
-         self.x_post_sample, self.x_sample, self.elbo, self.precisions, self.theta_tensors) = seq[:8]
-        self.summaries = seq[8] if len(seq) == 9 else None
+         self.x_post_sample, self.x_sample, self.elbo, self.precisions, self.theta_tensors, self.q_params) = seq[:n]
+        self.summaries = seq[n] if len(seq) == (n+1) else None
 
     def as_list(self):
         result = [self.log_normalized_iws, self.normalized_iws, self.normalized_iws_reshape,
-                  self.x_post_sample, self.x_sample, self.elbo, self.precisions, self.theta_tensors]
+                  self.x_post_sample, self.x_sample, self.elbo, self.precisions, self.theta_tensors, self.q_params]
         if self.summaries is not None:
             result.append(self.summaries)
         return result
@@ -208,7 +201,7 @@ class LocalAndGlobal:
         self.glob = glob
 
     @classmethod
-    def from_list(cls, seq):
+    def from_list(self, seq):
         return LocalAndGlobal(seq[0], seq[1], seq[2])
 
     def to_list(self):
@@ -226,13 +219,12 @@ class LocalAndGlobal:
             as_placeholder(self.glob, "global_" + suffix))
 
     def concat(self, name,):
-        """Returns a concatenation of the items. Copied from distributions.concat_local_global.
-        TODO(dacart): replace distributions.concat_local_global with this method throughout."""
-        concated = ChainedDistribution(name=name)
+        """Returns a concatenation of the items."""
+        concatenated = ChainedDistribution(name=name)
         for chained in self.to_list():
             for item_name, distribution in chained.distributions.items():
-                concated.add_distribution(item_name, distribution, chained.slot_dependencies[item_name])
-        return concated
+                concatenated.add_distribution(item_name, distribution, chained.slot_dependencies[item_name])
+        return concatenated
 
     def diagnostic_printout(self, prefix):
         print('%s-LOCAL\n%s' % (prefix, self.loc))
@@ -316,13 +308,14 @@ class TrainingStepper:
         self.train_step = self.build_train_step(dreg, encoder, objective, opt_func)
 
     @classmethod
-    def build_train_step(cls, dreg, encoder, objective, opt_func):
+    def build_train_step(self, dreg, encoder, objective, opt_func):
         '''Returns a computation that is run in the tensorflow session.'''
         # This path is for b_use_correct_iwae_gradients = True. For False, we would just
         # want to return opt_func.minimize(objective.vae_cost)
         trainable_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         if dreg:
-            grads = cls.create_dreg_gradients(encoder, objective, trainable_params)
+            grads = self.create_dreg_gradients(encoder, objective, trainable_params)
+            print("Set up Doubly Reparameterized Gradient (dreg)")
         else:
             # ... so, get list of params we will change with grad and ...
             # ... compute the VAE elbo gradient, using special stop grad function to prevent propagating gradients
@@ -337,7 +330,7 @@ class TrainingStepper:
         return optimizer
 
     @classmethod
-    def create_dreg_gradients(cls, encoder, objective, trainable_params):
+    def create_dreg_gradients(self, encoder, objective, trainable_params):
         normalized_weights = tf.stop_gradient(
             tf.nn.softmax(objective.log_unnormalized_iws, axis=1))  # [batch_size, num_iwae]
         sq_normalized_weights = tf.square(normalized_weights)  # [batch_size, num_iwae]
@@ -348,7 +341,6 @@ class TrainingStepper:
         neg_iwae_grad = tf.reduce_sum(sq_normalized_weights * stopped_log_weights, axis=1)  # [batch_size]
         iwae_grad = -tf.reduce_mean(neg_iwae_grad)
         grads = tf.gradients(iwae_grad, trainable_params)
-        print("Set up Doubly Reparameterized Gradient (dreg)")
         return grads
 
 
@@ -376,8 +368,8 @@ class DatasetPair(object):
         self.n_species = self.train.X.shape[2]
         # Number of time points we're training on
         self.n_time = self.train.X.shape[1]
-        # TODO(dacart) document this
-        self.depth = self.train.device_depth
+        # Number of group-level parameters (summed over all groups; int)
+        self.depth = self.train.procdata.device_depth
         # Number of conditions we're training on
         self.n_conditions = self.train.n_conditions
         # Numpy array of time-point values (floats), length self.n_time

@@ -1,16 +1,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 from models.base_model import BaseModel
-from utils import default_get_value
+from src.utils import default_get_value
 import tensorflow as tf
 import numpy as np
 import pdb
 
 class DR_Blackbox( BaseModel ):
     
-    def init_with_params( self, params ):
-        super(DR_Blackbox, self).init_with_params( params )
+    def init_with_params( self, params, relevance ):
+        super(DR_Blackbox, self).init_with_params( params, relevance )
         # do the other inits now
         self.n_z = params['n_z']
         self.n_hidden = params['n_hidden_decoder']
@@ -70,8 +70,8 @@ class DR_Blackbox( BaseModel ):
 
 class DR_BlackboxStudentT( DR_Blackbox ):
     
-    def init_with_params( self, params ):
-        super(DR_BlackboxStudentT, self).init_with_params( params )
+    def init_with_params( self, params, relevance ):
+        super(DR_BlackboxStudentT, self).init_with_params( params, relevance )
         
         # use a fixed gamma prior over precisions
         self.alpha = params['precision_alpha']
@@ -104,8 +104,8 @@ class DR_BlackboxStudentT( DR_Blackbox ):
         return log_prob
     
 class DR_BlackboxPrecisions( DR_Blackbox ):
-    def init_with_params( self, params ):
-        super(DR_BlackboxPrecisions, self).init_with_params( params )
+    def init_with_params( self, params, relevance ):
+        super(DR_BlackboxPrecisions, self).init_with_params( params, relevance )
         self.init_prec = params['init_prec']
         self.prec_constants = [self.init_prec for i in range(4)]
 
@@ -158,6 +158,7 @@ class DR_BlackboxPrecisions( DR_Blackbox ):
             # split for precisions and states
             reshaped_state = all_reshaped_state[:,:-4]
             reshaped_var_state = all_reshaped_state[:,-4:]
+            
             ZZ_states = tf.concat( [ reshaped_state, \
                         tf.reshape( Z, [n_batch*n_iwae, n_z]), \
                         treatments_rep,\

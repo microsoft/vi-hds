@@ -1,8 +1,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under a Microsoft Research License.
 
 import tensorflow as tf
 import numpy as np
+import pdb
 
 from solvers import modified_euler_integrate, modified_euler_integrate_while
 from utils import default_get_value
@@ -36,8 +37,9 @@ class BaseModel(object):
     # params (from elsewhere in the YAML structure) into it. It would really be better construct
     # it properly after the structure has been loaded.
     # pylint: disable=attribute-defined-outside-init
-    def init_with_params(self, params):
+    def init_with_params(self, params, relevance):
         self.params = params
+        self.relevance = relevance
         self.use_laplace = default_get_value(self.params, 'use_laplace', False, verbose=True)
         self.precision_type = default_get_value(self.params, 'precision_type', 'constant', verbose=True)
         self.species = ['OD', 'RFP', 'YFP', 'CFP']
@@ -60,7 +62,7 @@ class BaseModel(object):
         n_iwae = tf.shape(param)[1]
         n_batch = tf.shape(param)[0]
         # tile devices, one per iwae sample
-        dev_1hot_rep = tf.tile(dev_1hot, [n_iwae, 1])
+        dev_1hot_rep = tf.tile(dev_1hot * self.relevance[param_name], [n_iwae, 1])
         param_flat = tf.reshape(param, [n_iwae * n_batch, 1])
         param_cond = tf.layers.dense(dev_1hot_rep, units=1, use_bias=use_bias,
                                      activation=activation, name='%s_decoder' % param_name)
