@@ -22,43 +22,25 @@ def init_w(n_in):
 def init_b(n_in):
     return tf.Variable(xavier_init(n_in, 1))
 
-class ConditionalConvolutionalEncoder(object):
-    def __init__(self, params):
-        #self.seed = params["tensorflow_seed"]
-        self.n_filters = params["n_filters"]
-        self.filter_size = params["filter_size"]
-        self.pool_size = params["pool_size"]
-        self.n_hidden = params["n_hidden"]
-        self.data_format = params["data_format"]
-        self.n_batch = params["n_batch"]
-        self.lambda_l2 = params["lambda_l2"]
-        self.lambda_l2_hidden = params["lambda_l2_hidden"]
-        self.transfer_func = params["transfer_func"]
-
-    def __call__(self, x_delta_obs, name='hidden'):
-
-        self.conv2 = tf.layers.conv1d(
-            x_delta_obs,
-            filters=self.n_filters,
-            kernel_size=self.filter_size,
-            data_format=self.data_format,
-            name='conv2_species',
-            kernel_regularizer=tf.keras.regularizers.l2(self.lambda_l2),
-            kernel_initializer=tf.orthogonal_initializer())
-
-        # keep stride to 1, otherwise get saw-like filters
-        self.pool2 = tf.layers.average_pooling1d(
-            inputs=self.conv2,
-            pool_size=self.pool_size,
-            strides=1,
-            data_format=self.data_format,
-            name='pool2_species')
-
-        encoded = tf.layers.dense(
-            tf.layers.flatten(self.pool2),
-            activation=self.transfer_func,
-            units=self.n_hidden,
-            name="encoded",
-            kernel_regularizer=tf.keras.regularizers.l2(self.lambda_l2_hidden),
-            kernel_initializer=tf.orthogonal_initializer())
-        return encoded
+def ConditionalEncoder(params):
+    n_filters = params["n_filters"]
+    filter_size = params["filter_size"]
+    pool_size = params["pool_size"]
+    n_hidden = params["n_hidden"]
+    data_format = params["data_format"]
+    lambda_l2 = params["lambda_l2"]
+    lambda_l2_hidden = params["lambda_l2_hidden"]
+    transfer_func = params["transfer_func"]
+    return tf.keras.Sequential([
+        tf.keras.layers.Conv1D(n_filters, filter_size, 
+            data_format=data_format, 
+            kernel_regularizer=tf.keras.regularizers.l2(lambda_l2),
+            kernel_initializer=tf.orthogonal_initializer()),
+        tf.keras.layers.AveragePooling1D(pool_size=pool_size, strides=1, data_format=data_format),
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(
+            units=n_hidden,
+            activation=transfer_func,
+            kernel_initializer=tf.orthogonal_initializer(),
+            kernel_regularizer=tf.keras.regularizers.l2(lambda_l2_hidden))
+    ])
