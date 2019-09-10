@@ -64,8 +64,8 @@ class BaseModel(object):
         # tile devices, one per iwae sample
         dev_1hot_rep = tf.tile(dev_1hot * self.relevance[param_name], [n_iwae, 1])
         param_flat = tf.reshape(param, [n_iwae * n_batch, 1])
-        param_cond = tf.layers.dense(dev_1hot_rep, units=1, use_bias=use_bias,
-                                     activation=activation, name='%s_decoder' % param_name)
+        cond_nn = tf.keras.layers.Dense(1, use_bias=use_bias, activation=activation)
+        param_cond = cond_nn(dev_1hot_rep)
         return tf.reshape(param_flat * tf.exp(param_cond), [n_batch, n_iwae])
 
     def initialize_state(self, theta, constants):
