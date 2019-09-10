@@ -429,7 +429,6 @@ def run_on_split(args, split=None, trainer=None):
 def main():
     parser = create_parser(True)
     args = parser.parse_args()
-    print(args)
     spec = load_config_file(args.yaml)  # spec is a dict of dicts of dicts
     trainer = Trainer(args, args.yaml, add_timestamp=True)
     xval_merge = XvalMerge(args, spec["data"], trainer)
