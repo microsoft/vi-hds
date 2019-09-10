@@ -2,7 +2,6 @@
 # Licensed under a Microsoft Research License.
 
 import tensorflow as tf
-LSTMCell = tf.contrib.rnn.LSTMCell
 static_rnn = tf.nn.static_rnn
 
 class ODEDecoder(object):

@@ -79,13 +79,7 @@ class BaseModel(object):
     def simulate(self, theta, constants, times, conditions, dev_1hot, solver='dopri15', condition_on_device=True):
         init_state = self.initialize_state(theta, constants)
         d_states_d_t, dev_conditioned = self.gen_reaction_equations(theta, conditions, dev_1hot, condition_on_device)
-        if solver == 'dopri15':
-            # Evaluate ODEs using Dormand-Prince
-            t_state = tf.contrib.integrate.odeint(d_states_d_t, init_state, times,
-                                                  method='dopri5', options={'first_step': 0.01})
-            t_state_tr = tf.transpose(t_state, [1, 2, 0, 3])
-            f_state_tr = None
-        elif solver == 'modeuler':
+        if solver == 'modeuler':
             # Evaluate ODEs using Modified-Euler
             t_state, f_state = modified_euler_integrate(d_states_d_t, init_state, times)
             t_state_tr = tf.transpose(t_state, [0, 1, 3, 2])
