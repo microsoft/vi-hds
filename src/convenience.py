@@ -12,7 +12,7 @@ import tensorflow as tf
 
 # Local imports
 import procdata
-from encoders import ConditionalConvolutionalEncoder
+import encoders
 from decoders import ODEDecoder
 from distributions import ChainedDistribution, build_q_local, build_q_global, build_q_global_cond, build_p_local, build_p_global, build_p_global_cond
 from vi import GeneralLogImportanceWeights
@@ -159,7 +159,7 @@ class Encoder:
 
     @classmethod
     def set_up_q(self, verbose, parameters, placeholders, x_delta_obs):
-        encode = ConditionalConvolutionalEncoder(parameters.params_dict)
+        encode = encoders.ConditionalEncoder(parameters.params_dict)
         approx_posterior_params = encode(x_delta_obs)
         q_vals = LocalAndGlobal(
             # q: local, based on amortized neural network

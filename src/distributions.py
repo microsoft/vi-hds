@@ -57,9 +57,9 @@ def build_q_local(PARAMETERS, hidden, devs, conds, verbose, kernel_regularizer, 
             hidden_conditioned = tf.concat(to_concat, axis=1)
 
             # filter to whatever we want to condition
-            tf_free_param = tf.layers.dense(hidden_conditioned, units=1, use_bias=use_bias,
-                                            name='%s_%s' % (distribution_name, free_name),
-                                            kernel_regularizer=kernel_regularizer)
+            free_param = tf.keras.layers.Dense(1, use_bias=use_bias, kernel_regularizer=kernel_regularizer)
+            tf_free_param = free_param(hidden_conditioned)
+            #name='%s_%s' % (distribution_name, free_name)
             if stop_grad:
                 tf_free_param = tf.stop_gradient(tf_free_param)  # eliminate score function term from autodiff
             tf_constrained_param = constrain_parameter(
@@ -108,15 +108,14 @@ def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=Non
                     to_concat.append(devs)
 
             mlp_inp = tf.concat(to_concat, axis=1)
-            # map sample from prior with conditioning informtion through 1-layer NN
-            tf_free_param = tf.layers.dense(mlp_inp, units=1, use_bias=use_bias,
-                                            name='%s_%s' % (distribution_name, free_name),
-                                            kernel_regularizer=kernel_regularizer)
+            # map sample from prior with conditioning information through 1-layer NN
+            free_param = tf.keras.layers.Dense(1, use_bias=use_bias, kernel_regularizer=kernel_regularizer)
+            tf_free_param = free_param(mlp_inp)
+            #tf_free_param = tf.layers.dense(mlp_inp, units=1, use_bias=use_bias, kernel_regularizer=kernel_regularizer, 
+            #    name='%s_%s' % (distribution_name, free_name))
             if stop_grad:
                 tf_free_param = tf.stop_gradient(tf_free_param)
-            name = os.path.split(tf_free_param.name)[0]
-            variable_summaries(tf.get_default_graph().get_tensor_by_name(name + '/kernel:0'),
-                               'nn_weights_%s' % name)
+            variable_summaries(tf_free_param, 'nn_weights_%s_%s' % (distribution_name, free_name))
             tf_constrained_param = constrain_parameter(tf_free_param, free_to_constrained,
                                                        distribution_name, constrained_name)
 
