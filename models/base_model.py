@@ -76,7 +76,7 @@ class BaseModel(object):
         init_state = tf.reshape(tf.tile(constants_tensors, [n_batch * n_iwae, 1]), (n_batch, n_iwae, n_constants))
         return init_state
 
-    def simulate(self, theta, constants, times, conditions, dev_1hot, solver='dopri15', condition_on_device=True):
+    def simulate(self, theta, constants, times, conditions, dev_1hot, solver, condition_on_device=True):
         init_state = self.initialize_state(theta, constants)
         d_states_d_t, dev_conditioned = self.gen_reaction_equations(theta, conditions, dev_1hot, condition_on_device)
         if solver == 'modeuler':
