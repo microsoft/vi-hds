@@ -3,6 +3,7 @@
 
 import tensorflow as tf
 import numpy as np
+import pdb
 
 def modified_euler_integrate( d_states_d_t, init_state, times ):
     init_state = tf.verify_tensor_all_finite(init_state, "init_state NOT finite")
@@ -20,33 +21,44 @@ def modified_euler_integrate( d_states_d_t, init_state, times ):
     
     return tf.stack(x, axis = -1 ),tf.stack(F, axis = -1 )
 
-import pdb
-def gen_modified_euler_while_body(d_states_d_t, h, times ):
-    def modified_euler_while_body( idx, x ):
+def gen_odeint_while_body(d_states_d_t, h, times, algorithm='modeuler'):
+    if algorithm is 'modeuler':
+        def modified_euler_while_body( idx, x ):
 
-        #pdb.set_trace()
-        t1 = times[idx]
-        t2 = times[idx+1]
-        xi = x[idx]
-        #pdb.set_trace()
-        f1 = d_states_d_t( xi, t1 )
-        f2 = d_states_d_t( xi + h*f1, t2 )
-        y = tf.expand_dims( xi+0.5*h*(f1+f2), 0)
-        
-        return [tf.add(idx,1), tf.concat([x,y],axis=0)]
-        #return [idx+1, 0.5*h*(f1+f2)]
-    return modified_euler_while_body
+            t1 = times[idx]
+            t2 = times[idx+1]
+            xi = x[idx]
+            f1 = d_states_d_t( xi, t1 )
+            f2 = d_states_d_t( xi + h*f1, t2 )
+            y = tf.expand_dims( xi+0.5*h*(f1+f2), 0)
+            
+            return [tf.add(idx,1), tf.concat([x,y],axis=0)]
+        return modified_euler_while_body
+    elif algorithm is 'rk4':
+        def rk4_while_body( idx, x ):
 
-#import pdb
-def gen_modified_euler_while_conditions(T):
-    def modified_euler_while_conditions( idx, x ):
+            t1 = times[idx]
+            t2 = times[idx+1]
+            xi = x[idx]
+            k1 = h * d_states_d_t (xi, t1)
+            k2 = h * (d_states_d_t (xi + k1 * 0.5, t1 + h * 0.5))
+            k3 = h * (d_states_d_t (xi + k2 * 0.5, t1 + h * 0.5))
+            k4 = h * (d_states_d_t (xi + k3, t1 + h))
+            y = tf.expand_dims(xi + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0, 0)
+            
+            return [tf.add(idx,1), tf.concat([x,y],axis=0)]
+        return rk4_while_body
+    else:
+        raise Exception("Unknown ODE integration algorithm: " + algorithm)
+
+def gen_odeint_while_conditions(T):
+    def odeint_while_conditions( idx, x ):
         return tf.less( idx+1, T )
-    return modified_euler_while_conditions
+    return odeint_while_conditions
 
-def modified_euler_integrate_while( d_states_d_t, init_state, times ):
+def integrate_while( d_states_d_t, init_state, times, algorithm='modeuler' ):
     init_state = tf.verify_tensor_all_finite(init_state, "init_state NOT finite")
     x = tf.expand_dims( init_state, 0)  #[init_state]
-    #x = init_state
     h = times[1]-times[0]
     T = len(times)
     F = [] 
@@ -58,12 +70,11 @@ def modified_euler_integrate_while( d_states_d_t, init_state, times ):
     shape_invariants = [tf.TensorShape(None), tf.TensorShape([None,None,None,n_species])] #tf.TensorShape([None,1,1,times.shape[0]])
     loop_vars = [i0, x]
     
-    results = tf.while_loop( gen_modified_euler_while_conditions(T), \
-                             gen_modified_euler_while_body(d_states_d_t, h, tf_times), \
+    results = tf.while_loop( gen_odeint_while_conditions(T), \
+                             gen_odeint_while_body(d_states_d_t, h, tf_times, algorithm), \
                              loop_vars, \
                              shape_invariants=shape_invariants )
 
     x = results[-1]
-
     
     return x, None #tf.stack(x, axis = -1 ), None #tf.stack(F, axis = -1 )

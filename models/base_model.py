@@ -5,7 +5,7 @@ import tensorflow as tf
 import numpy as np
 import pdb
 
-from solvers import modified_euler_integrate, modified_euler_integrate_while
+from solvers import modified_euler_integrate, integrate_while
 from utils import default_get_value
 
 def power(x, a):
@@ -86,7 +86,12 @@ class BaseModel(object):
             f_state_tr = tf.transpose(f_state, [0, 1, 3, 2])
         elif solver == 'modeulerwhile':
             # Evaluate ODEs using Modified-Euler
-            t_state, f_state = modified_euler_integrate_while(d_states_d_t, init_state, times)
+            t_state, f_state = integrate_while(d_states_d_t, init_state, times, algorithm='modeuler')
+            t_state_tr = tf.transpose(t_state, [1, 2, 0, 3])
+            f_state_tr = None
+        elif solver == 'rk4':
+            # Evaluate ODEs using 4th order Runge-Kutta
+            t_state, f_state = integrate_while(d_states_d_t, init_state, times, algorithm='rk4')
             t_state_tr = tf.transpose(t_state, [1, 2, 0, 3])
             f_state_tr = None
         else:
