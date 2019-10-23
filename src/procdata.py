@@ -205,7 +205,7 @@ class ProcData:
             rv = np.zeros(self.device_depth)
             rv[k1:k2] = 1.0
             #print("Relevance for %s: "%k + str(rv))
-            self.relevance_vectors[k] = rv
+            self.relevance_vectors[k] = rv.astype(np.float32)
             k1 = k2
         # Manually curated device list: map from device names to 0.0, 1.0, ...
         self.device_map = dict(zip(self.device_names, (float(v) for v in range(len(self.device_names)))))

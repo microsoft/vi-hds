@@ -5,7 +5,7 @@ import tensorflow as tf
 import numpy as np
 import pdb
 
-from solvers import modified_euler_integrate, modified_euler_integrate_while
+from solvers import modified_euler_integrate, integrate_while
 from utils import default_get_value
 
 def power(x, a):
@@ -76,7 +76,7 @@ class BaseModel(object):
         init_state = tf.reshape(tf.tile(constants_tensors, [n_batch * n_iwae, 1]), (n_batch, n_iwae, n_constants))
         return init_state
 
-    def simulate(self, theta, constants, times, conditions, dev_1hot, solver='dopri15', condition_on_device=True):
+    def simulate(self, theta, constants, times, conditions, dev_1hot, solver, condition_on_device=True):
         init_state = self.initialize_state(theta, constants)
         d_states_d_t, dev_conditioned = self.gen_reaction_equations(theta, conditions, dev_1hot, condition_on_device)
         if solver == 'modeuler':
@@ -86,7 +86,12 @@ class BaseModel(object):
             f_state_tr = tf.transpose(f_state, [0, 1, 3, 2])
         elif solver == 'modeulerwhile':
             # Evaluate ODEs using Modified-Euler
-            t_state, f_state = modified_euler_integrate_while(d_states_d_t, init_state, times)
+            t_state, f_state = integrate_while(d_states_d_t, init_state, times, algorithm='modeuler')
+            t_state_tr = tf.transpose(t_state, [1, 2, 0, 3])
+            f_state_tr = None
+        elif solver == 'rk4':
+            # Evaluate ODEs using 4th order Runge-Kutta
+            t_state, f_state = integrate_while(d_states_d_t, init_state, times, algorithm='rk4')
             t_state_tr = tf.transpose(t_state, [1, 2, 0, 3])
             f_state_tr = None
         else:
