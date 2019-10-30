@@ -19,6 +19,7 @@ class XvalMerge(object):
         self.device_names = data_settings["devices"]
         self.conditions = data_settings["conditions"]
         self.elbo = []
+        self.elbo_list = []
         self.epoch = args.epochs
         self.name = args.experiment
         self.label = args.experiment
@@ -49,6 +50,7 @@ class XvalMerge(object):
             self.names = val_results["names"]
             self.times = val_results["times"]
         self.elbo.append(val_results["elbo"])
+        self.elbo_list.append(val_results["elbo_list"])
         self.log_normalized_iws.append(val_results["log_normalized_iws"])
         self.precisions.append(val_results["precisions"])
         self.q_values.append(val_results["q_values"])
@@ -65,6 +67,7 @@ class XvalMerge(object):
     def finalize(self):
         print('Preparing cross-validation results')
         self.elbo = np.array(self.elbo)
+        self.elbo_list = np.array(self.elbo_list)
         self.log_normalized_iws = np.concatenate(self.log_normalized_iws, 0)
         self.precisions = np.concatenate(self.precisions, 0)
         #self.q_values = [np.hstack(q) for q in np.array(self.q_values).transpose()]
@@ -102,6 +105,7 @@ class XvalMerge(object):
             np.savetxt(os.path.join(location, base), np.array(data, dtype=str), delimiter=" ", fmt="%s")
         print("Saving to: %s"%location)
         save("xval_result_elbo", self.elbo)
+        save("xval_result_elbo_list", self.elbo_list)
         save("xval_result_log_normalized_iws", self.log_normalized_iws)
         save("xval_result_precisions", self.precisions)
         savetxt("xval_result_q_names.txt", self.q_names)
@@ -128,6 +132,7 @@ class XvalMerge(object):
         def loadtxt(base):
             return np.loadtxt(os.path.join(location, base), dtype=str, delimiter=" ")
         self.elbo = load("xval_result_elbo.npy")
+        self.elbo_list = load("xval_result_elbo_list.npy")
         self.log_normalized_iws = load("xval_result_log_normalized_iws.npy")
         self.precisions = load("xval_result_precisions.npy")
         self.q_names = loadtxt("xval_result_q_names.txt")

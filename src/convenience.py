@@ -149,10 +149,10 @@ class Encoder:
         """Returns a ChainedDistribution"""
         p_vals = LocalAndGlobal(
             # prior: local: may have some dependencies in theta (in hierarchy, local, etc)
-            build_p_local(parameters, self.theta, verbose),
-            build_p_global_cond(parameters, self.theta, verbose),
+            build_p_local(parameters, verbose, self.theta),
+            build_p_global_cond(parameters, verbose, self.theta),
             # prior: global should be fully defined in parameters
-            build_p_global(parameters, self.theta, verbose))
+            build_p_global(parameters, verbose, self.theta))
         if verbose:
             p_vals.diagnostic_printout('P')
         return p_vals.concat("p")
@@ -286,6 +286,7 @@ class TrainingLogData:
         self.total_train_time = 0.0
         self.total_test_time = 0.0
         self.n_test = 0
+        self.max_val_elbo = -float('inf')
 
 class TrainingStepper:
     '''Class to hold variables needed for the training loop.'''

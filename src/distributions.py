@@ -41,7 +41,7 @@ def build_q_local(PARAMETERS, hidden, devs, conds, verbose, kernel_regularizer, 
 
     for distribution_name in distribution_descriptions.list_of_params:
         if verbose:
-            print("build_q_local::%s" % distribution_name)
+            print("- build_q_local::%s" % distribution_name)
         description = getattr(distribution_descriptions, distribution_name)
         conditioning = description.defaults['c']  # <-- not a tensor
         params = OrderedDict()
@@ -94,7 +94,7 @@ def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=Non
         conditioning = description.defaults['c']  # <-- not a tensor
 
         if verbose:
-            print("build_q_global_cond::%s"%distribution_name)
+            print("- build_q_global_cond::%s"%distribution_name)
         params = OrderedDict()
         for free_name, constrained_name, free_to_constrained in zip(
                 description.free_params, description.params, description.free_to_constrained):
@@ -132,7 +132,7 @@ def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=Non
 
     return q_global_cond
 
-def build_q_global(PARAMETERS, verbose=False, stop_grad=False):
+def build_q_global(PARAMETERS, verbose, stop_grad=False):
     # make a distribution that has "log_prob(theta)" and "sample()"
     q_global = ChainedDistribution(name="q_global")
 
@@ -145,7 +145,7 @@ def build_q_global(PARAMETERS, verbose=False, stop_grad=False):
     for distribution_name in distribution_descriptions.list_of_params:
         description = getattr(distribution_descriptions, distribution_name)
         if verbose:
-            print("build_q_global::%s" % distribution_name)
+            print("- build_q_global::%s" % distribution_name)
         params = OrderedDict()
         for free_name, constrained_name, free_to_constrained, init_free in zip(
                 description.free_params, description.params, description.free_to_constrained,
@@ -170,7 +170,7 @@ def build_q_global(PARAMETERS, verbose=False, stop_grad=False):
 
     return q_global
 
-def build_p_global(PARAMETERS, theta=None, verbose=False):
+def build_p_global(PARAMETERS, verbose, theta=None):
     # p_global: generative model with fixed distribution parameters; ie the top-level distributions
 
     # make a distribution that has "log_prob(theta)" and "sample()"
@@ -185,7 +185,7 @@ def build_p_global(PARAMETERS, theta=None, verbose=False):
 
     for distribution_name in distribution_descriptions.list_of_params:
         if verbose:
-            print("build_p_global::%s"%distribution_name)
+            print("- build_p_global::%s"%distribution_name)
 
         description = getattr(distribution_descriptions, distribution_name)
 
@@ -228,7 +228,7 @@ def build_p_global_cond(PARAMETERS, verbose, theta=None):
 
     for distribution_name in distribution_descriptions.list_of_params:
         if verbose:
-            print("build_p_global_cond::%s"%distribution_name)
+            print("- build_p_global_cond::%s"%distribution_name)
 
         description = getattr(distribution_descriptions, distribution_name)
         #conditioning = description.defaults['c']  # <-- not a tensor
@@ -259,7 +259,7 @@ def build_p_global_cond(PARAMETERS, verbose, theta=None):
 
     return p_global_cond
 
-def build_p_local(PARAMETERS, theta=None, verbose=False):
+def build_p_local(PARAMETERS, verbose, theta=None):
     assert hasattr(PARAMETERS, "l"), "require local parameters"
     distribution_descriptions = PARAMETERS.l
 
@@ -268,7 +268,7 @@ def build_p_local(PARAMETERS, theta=None, verbose=False):
 
     for distribution_name in distribution_descriptions.list_of_params:
         if verbose:
-            print("build_p_local::%s"%distribution_name)
+            print("- build_p_local::%s"%distribution_name)
 
         description = getattr(distribution_descriptions, distribution_name)
 
@@ -279,10 +279,10 @@ def build_p_local(PARAMETERS, theta=None, verbose=False):
         for (constrained_name, dependency) in zip(description.params, description.dependencies):
 
             if dependency is not None:
-                print("build_p_local: found dependency for %s = %s" % (constrained_name, dependency))
+                print("- build_p_local: found dependency for %s = %s" % (constrained_name, dependency))
                 #params[constrained_name] = getattr(theta, dependency)
                 if theta is None:
-                    print("build_p_local: empty slot for dependency!")
+                    print("- build_p_local: empty slot for dependency!")
                     params[constrained_name] = None
                     slots[constrained_name] = dependency
                 else:

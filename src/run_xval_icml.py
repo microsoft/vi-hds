@@ -69,6 +69,8 @@ class Runner:
         self.training_stepper = None
         # Validation feed_dict keys: dict from placeholder Tensor to np.array
         self.val_feed_dict = None
+        # Model path for storing best weights so far
+        self.model_path = os.path.join(self.trainer.tb_log_dir, 'saver', 'sess_max_elbo')
 
     @classmethod
     def _tidy_args(cls, args, split):
@@ -279,7 +281,7 @@ class Runner:
     #     pp.close(treatment_fig)
 
     def _evaluate_elbo_and_plot(self, beta_val, epoch, eval_tensors, log_data, merged, sess,
-                                train_writer, valid_writer):
+                                train_writer, valid_writer, saver):
         log_data.n_test += 1
         test_start = time.time()
         # print("----------  BEGIN TESTING -----------------")
@@ -294,6 +296,9 @@ class Runner:
         self.val_feed_dict[self.placeholders.u] = np.random.randn(
             self.dataset_pair.n_val, self.args.test_samples, self.n_theta)
         validation_output = SessionVariables(sess.run(eval_tensors + [merged], feed_dict=self.val_feed_dict))
+        if validation_output.elbo > log_data.max_val_elbo:
+            log_data.max_val_elbo = validation_output.elbo
+            saver.save(sess, self.model_path)
         valid_writer.add_summary(validation_output.summaries, epoch)
         if self.args.no_figures is False:
             self._plot_prediction_summary_figure(self.dataset_pair.val, validation_output, epoch, valid_writer)
@@ -336,9 +341,10 @@ class Runner:
         train_writer = tf.summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'train_%s' % held_out_name))
         valid_writer = tf.summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'valid_%s' % held_out_name))
         eval_tensors = self._create_session_variables().as_list()
+        saver = tf.train.Saver()
         print("----------------------------------------------")
         print("Starting Session...")
-        beta_val = 1.0
+        beta = 1.0
         with tf.Session() as sess:
             self._fix_random_seed()  # <-- force run to be deterministic given random seed
             # initialize variables in the graph
@@ -354,19 +360,20 @@ class Runner:
                 epoch_start = time.time()
                 epoch_batch_chunks = self._init_chunks()
                 for i_batch in epoch_batch_chunks:
-                    beta_val = self._run_batch(beta_val, epoch_start, i_batch, log_data)
+                    beta = self._run_batch(beta, epoch_start, i_batch, log_data)
                 log_data.total_train_time += time.time() - epoch_start
                 # occasionally evaluation ELBO on train and val, using more IW samples
                 if np.mod(epoch, self.args.test_epoch) == 0:
-                    self._evaluate_elbo_and_plot(beta_val, epoch, eval_tensors, log_data, merged, sess, train_writer,
-                                                 valid_writer)
+                    self._evaluate_elbo_and_plot(beta, epoch, eval_tensors, log_data, merged, sess, train_writer, 
+                        valid_writer, saver)
             train_writer.close()
             valid_writer.close()
             print("===========================")
 
             # Apply weights
             # TODO(dacart): do we need the next line?
-            _training_output = SessionVariables(sess.run(eval_tensors, feed_dict=self.train_feed_dict))
+            #_training_output = SessionVariables(sess.run(eval_tensors, feed_dict=self.train_feed_dict))
+            saver.restore(sess, self.model_path)
             validation_output = SessionVariables(sess.run(eval_tensors, feed_dict=self.val_feed_dict))
         sess.close()
         tf.reset_default_graph()
@@ -390,7 +397,8 @@ class Runner:
                        "x_post_sample": validation_output.x_post_sample,
                        "precisions": validation_output.precisions,
                        "log_normalized_iws": validation_output.log_normalized_iws,
-                       "elbo": log_data.validation_elbo_list,
+                       "elbo": validation_output.elbo,
+                       "elbo_list": log_data.validation_elbo_list,
                        "theta": validation_output.theta_tensors,
                        "q_names": self.encoder.q.get_tensor_names(),
                        "q_values": validation_output.q_params}
