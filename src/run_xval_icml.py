@@ -181,7 +181,7 @@ class Runner:
         # This is already a model object because of the use of "!!python/object:... in the yaml file.
         model = self.params_dict["model"]
         # Set various attributes of the model
-        model.init_with_params(self.params_dict, self.procdata.relevance_vectors)
+        model.init_with_params(self.params_dict, self.procdata.relevance_vectors, self.procdata.default_devices)
         
         # Import priors from YAML
         parameters = Parameters()
