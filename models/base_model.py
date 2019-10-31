@@ -37,9 +37,10 @@ class BaseModel(object):
     # params (from elsewhere in the YAML structure) into it. It would really be better construct
     # it properly after the structure has been loaded.
     # pylint: disable=attribute-defined-outside-init
-    def init_with_params(self, params, relevance):
+    def init_with_params(self, params, relevance, default_devices):
         self.params = params
         self.relevance = relevance
+        self.default_devices = default_devices
         self.use_laplace = default_get_value(self.params, 'use_laplace', False, verbose=True)
         self.precision_type = default_get_value(self.params, 'precision_type', 'constant', verbose=True)
         self.species = ['OD', 'RFP', 'YFP', 'CFP']
@@ -53,20 +54,22 @@ class BaseModel(object):
     def get_precision_list(self, theta):
         return [theta.prec_x, theta.prec_rfp, theta.prec_yfp, theta.prec_cfp]
 
-    def device_conditioner(self, param, param_name, dev_1hot, use_bias=False, activation=None):
+    def device_conditioner(self, param, param_name, dev_1hot, kernel_initializer='glorot_uniform', use_bias=False, activation=tf.nn.relu):
         """
         Returns a 1D parameter conditioned on device
         ::NOTE:: condition_on_device is a closure over n_iwae, n_batch, dev_1hot_rep
         """
-        # TODO: try e.g. activation=tf.nn.relu
         n_iwae = tf.shape(param)[1]
         n_batch = tf.shape(param)[0]
+        param_flat = tf.reshape(param, [n_iwae * n_batch, 1])
+        cond_nn = tf.keras.layers.Dense(1, use_bias=use_bias, activation=activation, kernel_initializer=kernel_initializer)
         # tile devices, one per iwae sample
         dev_1hot_rep = tf.tile(dev_1hot * self.relevance[param_name], [n_iwae, 1])
-        param_flat = tf.reshape(param, [n_iwae * n_batch, 1])
-        cond_nn = tf.keras.layers.Dense(1, use_bias=use_bias, activation=activation)
         param_cond = cond_nn(dev_1hot_rep)
-        return tf.reshape(param_flat * tf.exp(param_cond), [n_batch, n_iwae])
+        if param_name in self.default_devices:
+            return tf.reshape(param_flat * (1.0 + param_cond), [n_batch, n_iwae])
+        else:
+            return tf.reshape(param_flat * param_cond, [n_batch, n_iwae])
 
     def initialize_state(self, theta, constants):
         constants_tensors = tf.expand_dims(tf.constant(self.get_list_of_constants(constants), dtype=tf.float32), 0)

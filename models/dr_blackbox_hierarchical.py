@@ -9,8 +9,8 @@ import pdb
 
 class DR_HierarchicalBlackbox( BaseModel ):
     
-    def init_with_params( self, params, relevance ):
-        super(DR_HierarchicalBlackbox, self).init_with_params( params, relevance )
+    def init_with_params( self, params, relevance, default_devices ):
+        super(DR_HierarchicalBlackbox, self).init_with_params( params, relevance, default_devices )
         # do the other inits now
         self.n_x = params['n_x']
         self.n_y = params['n_y']
