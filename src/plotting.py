@@ -546,6 +546,7 @@ def xval_global_parameters(res, ncols=6):
                 ax.errorbar(np.linspace(1,nfolds,nfolds),qs['%s.mu'%name], 1 / qs['%s.prec'%name], fmt='.')
                 ax.set_title(name)
                 ax.set_xlim([0.5, nfolds + 0.5])
+                ax.set_xticks(range(1,nfolds+1))
                 if i == (nrows-1):
                     ax.set_xlabel('Fold')
             else:
