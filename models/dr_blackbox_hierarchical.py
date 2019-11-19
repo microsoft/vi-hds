@@ -17,7 +17,7 @@ class DR_HierarchicalBlackbox( BaseModel ):
         self.n_z = params['n_z']
         self.n_latent_species = params['n_latent_species']
         self.n_hidden_species = params['n_hidden_decoder_species']
-        self.n_hidden_precisions = params['n_hidden_decoder_precisions']        
+        self.n_hidden_precisions = params['n_hidden_decoder_precisions']
         self.init_latent_species = default_get_value(params, 'init_latent_species', 0.001)
         self.latent_species_constants = [self.init_latent_species for i in range( self.n_latent_species)]
         self.init_prec = default_get_value(params, 'init_prec', 0.00001)

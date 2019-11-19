@@ -13,13 +13,12 @@ data:
   plotSeparatedConditions: true
   
 params:
-  model: !!python/object:models.dr_constant.DR_Constant {}
+  model: !!python/object:models.dr_constant.DR_Constant_Precisions {}
   theta_columns: ['aYFP','aCFP','aR','aS','r','K']
   lambda_l2: 0.001
   lambda_l2_hidden: 0.001
   learning_boundaries: [250,1000]
   learning_rates: [0.01,0.002,0.0002]
-  solver: 'rk4'
 
   constants: { init_x: 0.002, init_rfp: 0.0, init_yfp: 0.0, init_cfp: 0.0, init_luxR: 0.0, init_lasR: 0.0 }
   
