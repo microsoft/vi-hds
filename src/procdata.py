@@ -186,6 +186,10 @@ class ProcData:
         # The different devices we work with
         self.device_names = data["devices"]
         self.pretty_devices = data["pretty_devices"]
+        if "default_devices" in data:
+            self.default_devices = data["default_devices"]
+        else:
+            self.default_devices = dict()
         # Conditions (inputs)
         self.conditions = data["conditions"]
         # Files to be loaded
@@ -205,6 +209,8 @@ class ProcData:
             rv = np.zeros(self.device_depth)
             rv[k1:k2] = 1.0
             #print("Relevance for %s: "%k + str(rv))
+            if k in self.default_devices:
+                rv[k1 + self.default_devices[k]] = 0.0
             self.relevance_vectors[k] = rv.astype(np.float32)
             k1 = k2
         # Manually curated device list: map from device names to 0.0, 1.0, ...

@@ -9,8 +9,8 @@ import pdb
 
 class DR_Blackbox( BaseModel ):
     
-    def init_with_params( self, params, relevance ):
-        super(DR_Blackbox, self).init_with_params( params, relevance )
+    def init_with_params( self, params, relevance, default_devices ):
+        super(DR_Blackbox, self).init_with_params( params, relevance, default_devices )
         # do the other inits now
         self.n_z = params['n_z']
         self.n_hidden = params['n_hidden_decoder']
@@ -70,8 +70,8 @@ class DR_Blackbox( BaseModel ):
 
 class DR_BlackboxStudentT( DR_Blackbox ):
     
-    def init_with_params( self, params, relevance ):
-        super(DR_BlackboxStudentT, self).init_with_params( params, relevance )
+    def init_with_params( self, params, relevance, default_devices ):
+        super(DR_BlackboxStudentT, self).init_with_params( params, relevance, default_devices )
         
         # use a fixed gamma prior over precisions
         self.alpha = params['precision_alpha']
@@ -104,8 +104,8 @@ class DR_BlackboxStudentT( DR_Blackbox ):
         return log_prob
     
 class DR_BlackboxPrecisions( DR_Blackbox ):
-    def init_with_params( self, params, relevance ):
-        super(DR_BlackboxPrecisions, self).init_with_params( params, relevance )
+    def init_with_params( self, params, relevance, default_devices ):
+        super(DR_BlackboxPrecisions, self).init_with_params( params, relevance, default_devices )
         self.init_prec = params['init_prec']
         self.prec_constants = [self.init_prec for i in range(4)]
 

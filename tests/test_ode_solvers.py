@@ -51,7 +51,7 @@ self.n_batch = min(self.params_dict['n_batch'], self.dataset_pair.n_train)
 
 # Set various attributes of the model
 model = self.params_dict["model"]
-model.init_with_params(self.params_dict, self.procdata.relevance_vectors)
+model.init_with_params(self.params_dict, self.procdata.relevance_vectors, self.procdata.default_devices)
 
 # Define simulation variables and run simulator
 constants = { 'init_x': 0.002, 'init_rfp': 0.0, 'init_cfp': 0.0, 'init_yfp': 0.0, 'init_luxR': 0.0, 'init_lasR': 0.0 }
