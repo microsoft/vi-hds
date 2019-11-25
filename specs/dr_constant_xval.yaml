@@ -7,6 +7,9 @@ data:
   groups:
     aR: [0, 1, 1, 2, 2, 2]  # LuxR RBS
     aS: [0, 1, 2, 1, 2, 3]  # LasR RBS
+  default_devices:
+    aR: 0
+    aS: 0
   files: ['proc140916.csv','proc140930.csv','proc141006.csv','proc141021.csv','proc141023.csv','proc141028.csv']
   signals: ["OD", "mRFP1", "EYFP", "ECFP"]
   conditions: ["C6","C12"]
@@ -32,9 +35,7 @@ params:
 
   global_conditioned:
     conditioning: { devices: true, treatments: false }
-    aR:   { distribution: LogNormal, mu:  1.0, sigma: 3.0}
-    aS:   { distribution: LogNormal, mu:  1.0, sigma: 3.0}
-
+    
   global:    
     prec_x:   { distribution: data_precision_lognormal_x}
     prec_rfp: { distribution: data_precision_lognormal}

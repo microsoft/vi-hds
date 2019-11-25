@@ -10,8 +10,8 @@ import pdb
 
 class DR_Constant(BaseModel):
 
-    def init_with_params(self, params, relevance):
-        super(DR_Constant, self).init_with_params(params, relevance)
+    def init_with_params(self, params, relevance, default_devices):
+        super(DR_Constant, self).init_with_params(params, relevance, default_devices)
         # do the other inits now
         self.use_aRFP = default_get_value(params, "use_aRFP", False)
         self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F510', 'F430', 'LuxR', 'LasR']
@@ -28,7 +28,7 @@ class DR_Constant(BaseModel):
 
     def gen_reaction_equations(self, theta, treatments, dev_1hot, condition_on_device=True):
 
-        n_iwae = tf.shape(theta.aR)[1]
+        n_iwae = tf.shape(theta.r)[1]
 
         # tile treatments, one per iwae sample
         treatments_transformed = tf.clip_by_value(tf.exp(treatments) - 1.0, 0.0, 1e6)
@@ -69,11 +69,11 @@ class DR_Constant(BaseModel):
 
         # condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
         # currently, f is a one-layer MLP with NO activation function (e.g., offset and scale only)
-        # TODO(ndalchau): This extraction of aR and aS from the same 1hot vector cannot be correct.
         if condition_on_device:
-            #print("*** I'm conditioning!")
-            aR = self.device_conditioner(theta.aR, 'aR', dev_1hot)
-            aS = self.device_conditioner(theta.aS, 'aS', dev_1hot)
+            kinit = tf.keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
+            ones = tf.tile([[1.0]],tf.shape(theta.r))
+            aR = self.device_conditioner(ones, 'aR', dev_1hot, kernel_initializer=kinit)
+            aS = self.device_conditioner(ones, 'aS', dev_1hot, kernel_initializer=kinit)
         else:
             aR = theta.aR
             aS = theta.aS
