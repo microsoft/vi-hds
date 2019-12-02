@@ -4,6 +4,7 @@
 from models.base_model import BaseModel, log_prob_gaussian
 from src.utils import default_get_value
 from tensorflow.keras.layers import Dense
+from tensorflow.keras import Sequential
 import tensorflow as tf
 import numpy as np
 import pdb
@@ -174,7 +175,6 @@ class DR_Constant_Precisions(DR_Constant):
 
         n_batch = tf.shape(theta.r)[0]
         n_iwae = tf.shape(theta.r)[1]
-        n_states  = tf.shape(theta.r)[-1]
 
         # tile treatments, one per iwae sample
         treatments_transformed = tf.clip_by_value(tf.exp(treatments) - 1.0, 0.0, 1e6)
@@ -226,6 +226,7 @@ class DR_Constant_Precisions(DR_Constant):
 
         def reaction_equations(state, t):
             
+            n_states  = tf.shape(state)[2]
             x, rfp, yfp, cfp, f510, f430, luxR, lasR = tf.unstack(state[:,:,:-4], axis=2)
 
             # Cells growing or not (not before lag-time)
@@ -270,11 +271,12 @@ class DR_Constant_Precisions(DR_Constant):
             #layer2_vrs = tf.layers.dense( layer1_vrs, units=4, activation = tf.nn.sigmoid, name="vars_act",reuse=tf.AUTO_REUSE )
             #layer3_vrs = tf.layers.dense( layer1_vrs, units=4, activation = tf.nn.sigmoid, name="vars_deg",reuse=tf.AUTO_REUSE )
             
-            inp = Dense(self.n_hidden_precisions, activation = tf.nn.relu, name="vars_hidden")(ZZ_vrs)
+            inp = Dense(self.n_hidden_precisions, activation = tf.nn.relu, name="vars_hidden", input_shape=(9,))
             act_layer = Dense(4, activation = tf.nn.sigmoid, name="vars_act")
             deg_layer = Dense(4, activation = tf.nn.sigmoid, name="vars_deg")
-            
-            vrs    = tf.reshape(act_layer(inp) - deg_layer(inp)*reshaped_var_state, [n_batch, n_iwae, n_states])
+            act = Sequential([inp, act_layer])(ZZ_vrs)
+            deg = Sequential([inp, deg_layer])(ZZ_vrs)            
+            vrs    = tf.reshape(act - deg*reshaped_var_state, [n_batch, n_iwae, 4])
 
             return tf.concat([states,vrs], 2)
 
