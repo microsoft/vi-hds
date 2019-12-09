@@ -4,6 +4,8 @@
 from models.base_model import BaseModel
 from src.utils import default_get_value
 import tensorflow as tf
+from tensorflow.keras.layers import Dense
+from tensorflow.keras import Sequential
 import numpy as np
 import pdb
 
@@ -85,7 +87,8 @@ class DR_HierarchicalBlackbox( BaseModel ):
                 Y.append( getattr(theta, nm ) )
             Y = tf.stack( Y, axis=2 )
             Y_reshaped = tf.reshape( Y, [n_batch*n_iwae, self.n_y])
-            Y_reshaped = Y_reshaped + tf.layers.dense( devices, units=self.n_y, activation = None, name="device_offsets",reuse=tf.AUTO_REUSE )
+            offset_layer = Dense(self.n_y, activation=None, name="device_offsets")
+            Y_reshaped = Y_reshaped + offset_layer( devices )
             Y = tf.reshape( Y_reshaped, [n_batch, n_iwae, self.n_y] )
 
         # globals
@@ -121,7 +124,7 @@ class DR_HierarchicalBlackbox( BaseModel ):
 
         def reaction_equations( state, t ):
             n_states  = state.shape[-1].value
-            n_latents       = latents.shape[-1].value
+            n_latents = latents.shape[-1].value
             all_reshaped_state = tf.reshape( state, [n_batch*n_iwae, n_states])
 
             # split for precisions and states
@@ -131,21 +134,24 @@ class DR_HierarchicalBlackbox( BaseModel ):
             ZZ_states = tf.concat( [ reshaped_state, \
                         tf.reshape( latents, [n_batch*n_iwae, n_latents]), \
                         treatments_rep,\
-                        devices], axis=1 )            
-            layer1_states = tf.layers.dense( ZZ_states, units=self.n_hidden_species, activation = tf.nn.tanh, name="bb_hidden",reuse=tf.AUTO_REUSE )
-            layer2_states = tf.layers.dense( layer1_states, units=4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_df_act",reuse=tf.AUTO_REUSE )
-            layer3_states = tf.layers.dense( layer1_states, units=4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_df_deg",reuse=tf.AUTO_REUSE )
-            
+                        devices], axis=1 )
+            states_inp = Dense(self.n_hidden_species, activation = tf.nn.relu, name="bb_hidden")   #activation = tf.nn.tanh
+            states_act_layer = Dense(4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_df_act")
+            states_deg_layer = Dense(4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_df_deg")
+            states_act = Sequential([states_inp, states_act_layer])(ZZ_states)
+            states_deg = Sequential([states_inp, states_deg_layer])(ZZ_states)            
+            states    = states_act - states_deg*reshaped_state
+
             ZZ_vrs = tf.concat( [ all_reshaped_state, \
                         tf.reshape( latents, [n_batch*n_iwae, n_latents]), \
                         treatments_rep,\
                         devices], axis=1 )            
-            layer1_vrs = tf.layers.dense( ZZ_vrs, units=self.n_hidden_precisions, activation = tf.nn.tanh, name="bb_hidden_vrs",reuse=tf.AUTO_REUSE )
-            layer2_vrs = tf.layers.dense( layer1_vrs, units=4, activation = tf.nn.sigmoid, name="bb_df_act_vrs",reuse=tf.AUTO_REUSE )
-            layer3_vrs = tf.layers.dense( layer1_vrs, units=4, activation = tf.nn.sigmoid, name="bb_df_deg_vrs",reuse=tf.AUTO_REUSE )
-
-            states = layer2_states-layer3_states*reshaped_state
-            vrs    = layer2_vrs-layer3_vrs*reshaped_var_state
+            vars_inp = Dense(self.n_hidden_precisions, activation = tf.nn.relu, name="bb_hidden_vrs")   #activation = tf.nn.tanh
+            vars_act_layer = Dense(4, activation = tf.nn.sigmoid, name="bb_df_act_vrs")
+            vars_deg_layer = Dense(4, activation = tf.nn.sigmoid, name="bb_df_deg_vrs")
+            vars_act = Sequential([vars_inp, vars_act_layer])(ZZ_vrs)
+            vars_deg = Sequential([vars_inp, vars_deg_layer])(ZZ_vrs)            
+            vrs    = vars_act - vars_deg*reshaped_var_state
 
             return tf.reshape( tf.concat( [states,vrs],1),  [n_batch, n_iwae, n_states] )
         

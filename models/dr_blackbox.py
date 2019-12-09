@@ -4,6 +4,8 @@
 from models.base_model import BaseModel
 from src.utils import default_get_value
 import tensorflow as tf
+from tensorflow.keras.layers import Dense
+from tensorflow.keras import Sequential
 import numpy as np
 import pdb
 
@@ -119,30 +121,14 @@ class DR_BlackboxPrecisions( DR_Blackbox ):
         prec = 1.0 / var
         log_prec = tf.log(prec)
         return log_prec, prec
-
-    # def initialize_state( self, theta, constants ):
-    #     constants_tensors = tf.expand_dims( tf.constant( self.get_list_of_constants(constants), dtype=tf.float32 ), 0 )
-    
-
-    #     init_prec = 1.0 / tf.nn.softplus( tf.stack( [theta.init_prec_x, theta.init_prec_rfp, theta.init_prec_yfp, theta.init_prec_cfp], axis=2 ) )
-
-
-    #     n_constants = constants_tensors.shape[1].value
-    #     n_batch     = theta.get_n_batch() 
-    #     n_iwae      = theta.get_n_samples() 
-    
-    #     init_constants = tf.reshape( tf.tile( constants_tensors, [n_batch*n_iwae,1] ), (n_batch,n_iwae,n_constants) )
         
-    #     init_state = tf.concat( [init_constants, init_prec], axis=-1 )
-
-    #     #pdb.set_trace()
-    #     return init_state
     def gen_reaction_equations( self, theta, treatments, dev_1hot, condition_on_device=True ):
         n_iwae = tf.shape( theta.z1 )[1]  
         n_batch = tf.shape( theta.z1 )[0]
         devices = tf.tile( dev_1hot, [n_iwae, 1] )
-
+        n_devices = tf.shape( dev_1hot )[1]
         treatments_rep = tf.tile( treatments, [n_iwae,1])
+        n_treatments = tf.shape( treatments )[1]
 
         Z = []
         for i in range(1,self.n_z+1):
@@ -151,8 +137,7 @@ class DR_BlackboxPrecisions( DR_Blackbox ):
 
         def reaction_equations( state, t ):
             n_states  = state.shape[-1].value
-            n_z       = Z.shape[-1].value            
-            n_hidden = self.n_hidden
+            n_z       = Z.shape[-1].value
             all_reshaped_state = tf.reshape( state, [n_batch*n_iwae, n_states])
 
             # split for precisions and states
@@ -163,21 +148,24 @@ class DR_BlackboxPrecisions( DR_Blackbox ):
                         tf.reshape( Z, [n_batch*n_iwae, n_z]), \
                         treatments_rep,\
                         devices], axis=1 )            
-            layer1_states = tf.layers.dense( ZZ_states, units=n_hidden, activation = tf.nn.tanh, name="bb_hidden",reuse=tf.AUTO_REUSE )
-            layer2_states = tf.layers.dense( layer1_states, units=4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_df_act",reuse=tf.AUTO_REUSE )
-            layer3_states = tf.layers.dense( layer1_states, units=4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_df_deg",reuse=tf.AUTO_REUSE )
+            states_inp = Dense(self.n_hidden, activation = tf.nn.relu, name="bb_hidden")   #activation = tf.nn.tanh
+            states_act_layer = Dense(4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_df_act")
+            states_deg_layer = Dense(4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_df_deg")
+            states_act = Sequential([states_inp, states_act_layer])(ZZ_states)
+            states_deg = Sequential([states_inp, states_deg_layer])(ZZ_states)            
+            states    = states_act - states_deg*reshaped_state
 
             ZZ_vrs = tf.concat( [ all_reshaped_state, \
                         tf.reshape( Z, [n_batch*n_iwae, n_z]), \
                         treatments_rep,\
-                        devices], axis=1 )            
-            layer1_vrs = tf.layers.dense( ZZ_vrs, units=25, activation = tf.nn.tanh, name="bb_hidden_vrs",reuse=tf.AUTO_REUSE )
-            layer2_vrs = tf.layers.dense( layer1_vrs, units=4, activation = tf.nn.sigmoid, name="bb_df_act_vrs",reuse=tf.AUTO_REUSE )
-            layer3_vrs = tf.layers.dense( layer1_vrs, units=4, activation = tf.nn.sigmoid, name="bb_df_deg_vrs",reuse=tf.AUTO_REUSE )
-
-            states = layer2_states-layer3_states*reshaped_state
-            vrs    = layer2_vrs-layer3_vrs*reshaped_var_state
-
+                        devices], axis=1 )
+            vars_inp = Dense(25, activation = tf.nn.relu, name="bb_hidden_vrs")   #activation = tf.nn.tanh
+            vars_act_layer = Dense(4, activation = tf.nn.sigmoid, name="bb_df_act_vrs")
+            vars_deg_layer = Dense(4, activation = tf.nn.sigmoid, name="bb_df_deg_vrs")
+            vars_act = Sequential([vars_inp, vars_act_layer])(ZZ_vrs)
+            vars_deg = Sequential([vars_inp, vars_deg_layer])(ZZ_vrs)            
+            vrs    = vars_act - vars_deg*reshaped_var_state
+            
             return tf.reshape( tf.concat( [states,vrs],1),  [n_batch, n_iwae, n_states] )
         
         # Return equations and an empty dict, which can otherwise be populated with conditioned parameter values for TB visualization
