@@ -63,7 +63,7 @@ def load_config_file(filename):
     if filename is None:
         return None
     with open(filename, 'r') as stream:
-        return yaml.load(stream)
+        return yaml.unsafe_load(stream)
 
 def default_get_value(dct, key, default_value, verbose=False):
     if key in dct:
