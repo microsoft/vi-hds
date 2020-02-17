@@ -29,25 +29,29 @@ def plot_prediction_summary(procdata, names, times, OBS, PREDICT, PRECISIONS, de
     #pdb.set_trace()
     PREC = PRECISIONS
     STD = 1.0 / np.sqrt(PREC)
-
-    f, ax =pp.subplots(ndevices, nplots, sharex=True, figsize=(10, 2*ndevices))
+    
+    f, axs = pp.subplots(ndevices, nplots, sharex=True, figsize=(10, 2*ndevices))
     for iu,device_id in enumerate(unique_devices):
         locs = np.where(device_ids == device_id)[0]
         for idx in range(nplots):
+            if ndevices > 1:
+                ax = axs[iu,idx]
+            else:
+                ax = axs[idx]
             w_mu = np.sum(importance_weights[locs,:,np.newaxis]*PREDICT[locs, :, :, idx], 1)
             w_var =  np.sum(importance_weights[locs,:,np.newaxis]*(PREDICT[locs, :, :, idx]**2 + STD[locs, :, :, idx]**2), 1) - w_mu**2
             w_std = np.sqrt(w_var)
 
             for mu,std in zip(w_mu, w_std):
-                ax[iu,idx].fill_between(times, mu-2*std, mu+2*std, color='grey', alpha=0.1)
+                ax.fill_between(times, mu-2*std, mu+2*std, color='grey', alpha=0.1)
 
-            ax[iu,idx].plot(times, OBS[locs,:,idx].T, 'r-', lw=1, alpha=1)
-            ax[iu,idx].plot(times, w_mu.T, predict_style, lw=1, alpha=0.75, color='k')
-            if fixYaxis: ax[iu,idx].set_ylim(-0.2,1.2)
+            ax.plot(times, OBS[locs,:,idx].T, 'r-', lw=1, alpha=1)
+            ax.plot(times, w_mu.T, predict_style, lw=1, alpha=0.75, color='k')
+            if fixYaxis: ax.set_ylim(-0.2,1.2)
 
-            if iu == ndevices-1: ax[iu,idx].set_xlabel('Time (h)')
-            if iu == 0: ax[iu,idx].set_title(names[idx])
-            if idx == 0: ax[iu,idx].set_ylabel(procdata.pretty_devices[device_id])
+            if iu == ndevices-1: ax.set_xlabel('Time (h)')
+            if iu == 0: ax.set_title(names[idx])
+            if idx == 0: ax.set_ylabel(procdata.pretty_devices[device_id])
             pp.tight_layout()
             sns.despine()
 
