@@ -282,6 +282,7 @@ class Runner:
 
     def _evaluate_elbo_and_plot(self, beta_val, epoch, eval_tensors, log_data, merged, sess,
                                 train_writer, valid_writer, saver):
+        print("epoch %4d"%epoch, end='', flush=True)
         log_data.n_test += 1
         test_start = time.time()
         # print("----------  BEGIN TESTING -----------------")
@@ -289,6 +290,7 @@ class Runner:
             self.dataset_pair.n_train, self.args.test_samples, self.n_theta)
         training_output = SessionVariables(sess.run(eval_tensors + [merged], feed_dict=self.train_feed_dict))
         train_writer.add_summary(training_output.summaries, epoch)
+        print(" | train (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(training_output.elbo, log_data.total_train_time / epoch, log_data.total_train_time), end='', flush=True)
         
         # Plotting
         if self.args.no_figures is False:
@@ -303,9 +305,7 @@ class Runner:
         if self.args.no_figures is False:
             self._plot_prediction_summary_figure(self.dataset_pair.val, validation_output, epoch, valid_writer)
         log_data.total_test_time += time.time() - test_start
-        print("epoch %4d | train (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f) | val (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(
-            epoch, training_output.elbo, log_data.total_train_time / epoch, log_data.total_train_time,
-                validation_output.elbo, log_data.total_test_time / log_data.n_test, log_data.total_test_time))
+        print(" | val (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(validation_output.elbo, log_data.total_test_time / log_data.n_test, log_data.total_test_time))
         
         if np.mod(epoch, self.args.epochs) == 0 & self.args.no_figures is False:
             print("-------------- FINAL PLOTS --------------")
