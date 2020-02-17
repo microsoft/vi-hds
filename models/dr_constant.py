@@ -171,6 +171,12 @@ class DR_Constant_Precisions(DR_Constant):
                 constants['init_luxR'],
                 constants['init_lasR']] + self.prec_constants
 
+    def expand_precisions_by_time( self, theta, x_predict, x_obs, x_sample ):
+        var =  x_sample[:,:,:,-4:]
+        prec = 1.0 / var
+        log_prec = tf.log(prec)
+        return log_prec, prec
+
     def gen_reaction_equations(self, theta, treatments, dev_1hot, condition_on_device=True):
 
         n_batch = tf.shape(theta.r)[0]
@@ -267,11 +273,7 @@ class DR_Constant_Precisions(DR_Constant):
             t_expanded = tf.tile( [[t]], [n_batch*n_iwae, 1] )
             ZZ_vrs = tf.concat( [ t_expanded, reshaped_state ], axis=1 )
 
-            #layer1_vrs = tf.layers.dense( ZZ_vrs, units=self.n_hidden_precisions, activation = tf.nn.relu, name="vars_hidden",reuse=tf.AUTO_REUSE )
-            #layer2_vrs = tf.layers.dense( layer1_vrs, units=4, activation = tf.nn.sigmoid, name="vars_act",reuse=tf.AUTO_REUSE )
-            #layer3_vrs = tf.layers.dense( layer1_vrs, units=4, activation = tf.nn.sigmoid, name="vars_deg",reuse=tf.AUTO_REUSE )
-            
-            inp = Dense(self.n_hidden_precisions, activation = tf.nn.relu, name="vars_hidden", input_shape=(9,))
+            inp = Dense(self.n_hidden_precisions, activation = tf.nn.tanh, use_bias=True, name="vars_hidden", input_shape=(9,))
             act_layer = Dense(4, activation = tf.nn.sigmoid, name="vars_act")
             deg_layer = Dense(4, activation = tf.nn.sigmoid, name="vars_deg")
             act = Sequential([inp, act_layer])(ZZ_vrs)
