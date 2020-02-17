@@ -87,7 +87,8 @@ def apply_defaults(spec):
         'precision_beta' : 1.0,
         'init_prec' : 0.00001,
         'init_latent_species' : 0.001,
-        'transfer_func' : tf.nn.tanh
+        'transfer_func' : tf.nn.tanh,
+        'n_hidden_decoder_precisions' : 20
     }
     for k in spec:
         params[k] = spec[k]
