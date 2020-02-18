@@ -101,11 +101,11 @@ class Decoder:
         self.x_sample, self.x_post_sample, self.device_conditioned = ode_decoder(
             placeholders.conds_obs, placeholders.dev_1hot, times, encoder.theta, encoder.clipped_theta,
             condition_on_device=True)
-        self.set_up_summaries(plot_histograms)
+        self.set_up_summaries(params["plot_histograms"])
 
     def set_up_summaries(self, plot_histograms):
         for para, var in self.device_conditioned.items():
-            variable_summaries(var, '%s.conditioned' % para, params["plot_histograms"])
+            variable_summaries(var, '%s.conditioned' % para, plot_histograms)
 
 class Encoder:
     '''

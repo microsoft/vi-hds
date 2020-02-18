@@ -39,7 +39,7 @@ def is_empty(a):
 def variable_summaries(var, name, plot_histograms : bool):
     """ Attach summaries to a scalar node using Tensorboard """
     with tf.name_scope(name):
-        print("- Attaching tensorboard summary for %s"%name)
+        #print("- Attaching tensorboard summary for %s"%name)
         mean = tf.reduce_mean(var)
         tf.summary.scalar('mean', mean)
         with tf.name_scope('stddev'):
