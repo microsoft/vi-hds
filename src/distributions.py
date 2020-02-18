@@ -78,7 +78,7 @@ def build_q_local(PARAMETERS, hidden, devs, conds, verbose, kernel_regularizer, 
 
     return q_local
 
-def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=None, use_bias=False, stop_grad=False):
+def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=None, use_bias=False, stop_grad=False, plot_histograms=True):
     # make a distribution that has "log_prob(theta)" and "sample()"
     q_global_cond = ChainedDistribution(name="q_global_cond")
 
@@ -115,7 +115,7 @@ def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=Non
             #    name='%s_%s' % (distribution_name, free_name))
             if stop_grad:
                 tf_free_param = tf.stop_gradient(tf_free_param)
-            variable_summaries(tf_free_param, 'nn_weights_%s_%s' % (distribution_name, free_name))
+            variable_summaries(tf_free_param, 'nn_weights_%s_%s' % (distribution_name, free_name), plot_histograms)
             tf_constrained_param = constrain_parameter(tf_free_param, free_to_constrained,
                                                        distribution_name, constrained_name)
 
@@ -465,10 +465,10 @@ class ChainedDistribution(object):
             tensors.extend(distribution.get_tensors())
         return tensors
 
-    def attach_summaries(self):
+    def attach_summaries(self, plot_histograms):
         """ For each tensor in each distribution add a summary node """
         for name, distribution in self.distributions.items():
-            distribution.attach_summaries(name)
+            distribution.attach_summaries(name, plot_histograms)
 
     def add_noise(self, var):
         """ For each tensor in each distribution add random noise to parameter """
@@ -538,7 +538,7 @@ class TfCrnDistribution(ABC):
         pass
 
     @abstractmethod
-    def attach_summaries(self, name):
+    def attach_summaries(self, name, plot_histograms):
         pass
 
     # TODO(dacart): make the arguments to assign_free_and_constrained consistent,
@@ -638,20 +638,9 @@ class TfDirac(TfCrnDistribution):
     def get_tensors(self):
         return [self.mu]
 
-    def attach_summaries(self, name):
-        self._attach_summary_ops(self.mu, 'mu', name)
+    def attach_summaries(self, name, plot_histograms):
+        variable_summaries(self.mu, name+'_mu', plot_histograms)
         # self._attach_summary_ops(self.prec, 'prec', name)
-
-    def _attach_summary_ops(self, var, param_name, var_name):
-        with tf.name_scope('%s.%s' % (var_name, param_name)):
-            mean = tf.reduce_mean(var)
-            tf.summary.scalar('mean', mean)
-            with tf.name_scope('stddev'):
-                stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-            tf.summary.scalar('stddev', stddev)
-            tf.summary.scalar('max', tf.reduce_max(var))
-            tf.summary.scalar('min', tf.reduce_min(var))
-            tf.summary.histogram('histogram', var)
 
     def get_tensor_names(self, name):
         return ["%s.mu" % name]#, "%s.prec" % name]
@@ -743,25 +732,15 @@ class TfNormal(TfCrnDistribution):
     def get_tensors(self):
         return [self.mu, self.prec]
 
-    def attach_summaries(self, name):
+    def attach_summaries(self, name, plot_histograms):
         if self.variable:
-            self._attach_summary_variable(self.mu, 'mu', name)
-            self._attach_summary_variable(self.prec, 'prec', name)
+            variable_summaries(self.mu, name + '.mu', plot_histograms)
+            variable_summaries(self.prec, name + '.prec', plot_histograms)
         else:
             with tf.name_scope(name):
                 tf.summary.scalar('mu', tf.reduce_mean(self.mu))
                 tf.summary.scalar('prec', tf.reduce_mean(self.prec))
 
-    def _attach_summary_variable(self, var, param_name, var_name):
-        with tf.name_scope('%s.%s' % (var_name, param_name)):
-            mean = tf.reduce_mean(var)
-            tf.summary.scalar('mean', mean)
-            with tf.name_scope('stddev'):
-                stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-            tf.summary.scalar('stddev', stddev)
-            tf.summary.scalar('max', tf.reduce_max(var))
-            tf.summary.scalar('min', tf.reduce_min(var))
-            tf.summary.histogram('histogram', var)
 
     def get_tensor_names(self, name):
         return ["%s.mu" % name, "%s.prec" % name]

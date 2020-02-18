@@ -209,7 +209,7 @@ class Runner:
 
         # DEFINE THE DECODER NN
         print("Set up decoder")
-        self.decoder = Decoder(self.args.verbose, self.params_dict, self.placeholders, self.dataset_pair.times, self.encoder)
+        self.decoder = Decoder(self.params_dict, self.placeholders, self.dataset_pair.times, self.encoder)
 
         # DEFINE THE OBJECTIVE and GRADIENTS
         # likelihood p (x | theta)
@@ -223,12 +223,13 @@ class Runner:
 
         # TENSORBOARD VISUALIZATION            #
         ts_to_vis = 1
-        self.encoder.q.attach_summaries()  # global and local parameters of q distribution
+        plot_histograms = self.params_dict["plot_histograms"]
+        self.encoder.q.attach_summaries(plot_histograms)  # global and local parameters of q distribution
         unnormed_iw = self.objective.log_unnormalized_iws[ts_to_vis, :]
         self_normed_iw = self.objective.normalized_iws[ts_to_vis, :]   # not in log space
         with tf.name_scope('IWS'):
-            variable_summaries(unnormed_iw, 'iws_unn_log')
-            variable_summaries(self_normed_iw, 'iws_normed')
+            variable_summaries(unnormed_iw, 'iws_unn_log', plot_histograms)
+            variable_summaries(self_normed_iw, 'iws_normed', plot_histograms)
             tf.summary.scalar('nonzeros', tf.count_nonzero(self_normed_iw))
 
         #print(tf.shape(log_p_observations))

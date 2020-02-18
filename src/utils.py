@@ -36,9 +36,10 @@ def is_empty(a):
     else:
         return True
 
-def variable_summaries(var, name):
+def variable_summaries(var, name, plot_histograms : bool):
     """ Attach summaries to a scalar node using Tensorboard """
     with tf.name_scope(name):
+        print("- Attaching tensorboard summary for %s"%name)
         mean = tf.reduce_mean(var)
         tf.summary.scalar('mean', mean)
         with tf.name_scope('stddev'):
@@ -46,7 +47,7 @@ def variable_summaries(var, name):
         tf.summary.scalar('stddev', stddev)
         tf.summary.scalar('max', tf.reduce_max(var))
         tf.summary.scalar('min', tf.reduce_min(var))
-        tf.summary.histogram('histogram', var)
+        if plot_histograms: tf.summary.histogram('histogram', var)
 
 def make_summary_image_op(fig, tag, scope, image_format='png'):
     buf = fig_to_byte_buffer(fig, image_format=image_format)
@@ -88,7 +89,8 @@ def apply_defaults(spec):
         'init_prec' : 0.00001,
         'init_latent_species' : 0.001,
         'transfer_func' : tf.nn.tanh,
-        'n_hidden_decoder_precisions' : 20
+        'n_hidden_decoder_precisions' : 20,
+        'plot_histograms' : True
     }
     for k in spec:
         params[k] = spec[k]

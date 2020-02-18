@@ -16,7 +16,7 @@ import encoders
 from decoders import ODEDecoder
 from distributions import ChainedDistribution, build_q_local, build_q_global, build_q_global_cond, build_p_local, build_p_global, build_p_global_cond
 from vi import GeneralLogImportanceWeights
-from utils import default_get_value
+from utils import default_get_value, variable_summaries
 
 class Dataset(object):
 
@@ -90,8 +90,8 @@ class Decoder:
     Decoder network
     '''
 
-    def __init__(self, verbose: bool, params: Dict[str, Any], placeholders: 'Placeholders', times: np.array,
-                 encoder: 'Encoder'):
+    def __init__(self, params: Dict[str, Any], placeholders: 'Placeholders', times: np.array,
+                 encoder: 'Encoder', plot_histograms=True):
         ode_decoder = ODEDecoder(params)
         # List(str), e.g. ['OD', 'RFP', 'YFP', 'CFP', 'F510', 'F430', 'LuxR', 'LasR']
         self.names = ode_decoder.ode_model.species # list(str)
@@ -101,29 +101,18 @@ class Decoder:
         self.x_sample, self.x_post_sample, self.device_conditioned = ode_decoder(
             placeholders.conds_obs, placeholders.dev_1hot, times, encoder.theta, encoder.clipped_theta,
             condition_on_device=True)
-        self.set_up_summaries(verbose)
+        self.set_up_summaries(plot_histograms)
 
-    def set_up_summaries(self, verbose: bool):
+    def set_up_summaries(self, plot_histograms):
         for para, var in self.device_conditioned.items():
-            with tf.name_scope('%s.conditioned' % para):
-                if verbose:
-                    print("- Creating tensorboard outputs for %s" % para)
-                mean = tf.reduce_mean(var)
-                tf.summary.scalar('mean', mean)
-                with tf.name_scope('stddev'):
-                    stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-                tf.summary.scalar('stddev', stddev)
-                tf.summary.scalar('max', tf.reduce_max(var))
-                tf.summary.scalar('min', tf.reduce_min(var))
-                tf.summary.histogram('histogram', var)
+            variable_summaries(var, '%s.conditioned' % para, params["plot_histograms"])
 
 class Encoder:
     '''
     Encoder network
     '''
 
-    def __init__(self, verbose: bool, parameters: 'Parameters', placeholders: 'Placeholders',
-                 x_delta_obs: tf.Tensor):
+    def __init__(self, verbose: bool, parameters: 'Parameters', placeholders: 'Placeholders', x_delta_obs: tf.Tensor):
         # ChainedDistribution
         self.q = self.set_up_q(verbose, parameters, placeholders, x_delta_obs)
         # DotOperatorSamples
@@ -166,7 +155,7 @@ class Encoder:
             build_q_local(parameters, approx_posterior_params, placeholders.dev_1hot, placeholders.conds_obs, verbose,
                           kernel_regularizer=tf.keras.regularizers.l2(0.01)),
             # q: global, device-dependent distributions
-            build_q_global_cond(parameters, placeholders.dev_1hot, placeholders.conds_obs, verbose),
+            build_q_global_cond(parameters, placeholders.dev_1hot, placeholders.conds_obs, verbose, plot_histograms=parameters.params_dict["plot_histograms"]),
             # q: global, independent distributions
             build_q_global(parameters, verbose))
         if verbose:
