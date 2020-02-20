@@ -2,6 +2,8 @@
 # Licensed under a Microsoft Research License.
 
 import tensorflow as tf
+from tensorflow.keras.layers import Dense
+from tensorflow.keras import Sequential
 import numpy as np
 import pdb
 
@@ -141,3 +143,18 @@ class BaseModel(object):
         # sum along the time and observed species axes
         log_prob = tf.reduce_sum(log_prob, [2, 3])
         return log_prob
+
+    def neural_precisions(self, t, state, name : str, n_batch, n_iwae):
+        reshaped_state = tf.reshape(state[:,:,:-4], [n_batch*n_iwae, self.nspecies])
+        reshaped_var_state = tf.reshape(state[:,:,-4:], [n_batch*n_iwae, 4])
+        t_expanded = tf.tile( [[t]], [n_batch*n_iwae, 1] )
+        ZZ_vrs = tf.concat( [ t_expanded, reshaped_state ], axis=1 )
+
+        inp = Dense(self.n_hidden_precisions, activation = tf.nn.tanh, use_bias=True, name=name+"_vars_hidden", input_shape=(self.nspecies+1,))
+        act_layer = Dense(4, activation = tf.nn.sigmoid, name=name+"_vars_act")
+        deg_layer = Dense(4, activation = tf.nn.sigmoid, name=name+"_vars_deg")
+        act = Sequential([inp, act_layer])(ZZ_vrs)
+        deg = Sequential([inp, deg_layer])(ZZ_vrs)
+        vrs = tf.reshape(act - deg*reshaped_var_state, [n_batch, n_iwae, 4])
+
+        return vrs
