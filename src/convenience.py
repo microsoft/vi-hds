@@ -148,16 +148,19 @@ class Encoder:
 
     @classmethod
     def set_up_q(self, verbose, parameters, placeholders, x_delta_obs):
-        encode = encoders.ConditionalEncoder(parameters.params_dict)
-        approx_posterior_params = encode(x_delta_obs)
-        q_vals = LocalAndGlobal(
-            # q: local, based on amortized neural network
-            build_q_local(parameters, approx_posterior_params, placeholders.dev_1hot, placeholders.conds_obs, verbose,
-                          kernel_regularizer=tf.keras.regularizers.l2(0.01)),
-            # q: global, device-dependent distributions
-            build_q_global_cond(parameters, placeholders.dev_1hot, placeholders.conds_obs, verbose, plot_histograms=parameters.params_dict["plot_histograms"]),
-            # q: global, independent distributions
-            build_q_global(parameters, verbose))
+        # q: global, device-dependent distributions
+        q_global_cond = build_q_global_cond(parameters, placeholders.dev_1hot, placeholders.conds_obs, verbose, plot_histograms=parameters.params_dict["plot_histograms"])
+        # q: global, independent distributions
+        q_global = build_q_global(parameters, verbose)
+        # q: local, based on amortized neural network
+        if len(parameters.l.list_of_params) > 0:
+            encode = encoders.ConditionalEncoder(parameters.params_dict)
+            approx_posterior_params = encode(x_delta_obs)
+            q_local = build_q_local(parameters, approx_posterior_params, placeholders.dev_1hot, placeholders.conds_obs, verbose,
+                        kernel_regularizer=tf.keras.regularizers.l2(0.01))
+        else:
+            q_local = ChainedDistribution(name="q_local")
+        q_vals = LocalAndGlobal(q_local, q_global_cond, q_global)
         if verbose:
             q_vals.diagnostic_printout('Q')
         return q_vals.concat("q")
@@ -313,10 +316,10 @@ class TrainingStepper:
             grads = tf.gradients(objective.vae_cost, trainable_params)
             print("Set up non-dreg gradient")
             # grads = [tf.clip_by_value(g, -0.1, 0.1) for g in iwae_grads]
-        # This depends on update rule implemented in AdamOptimizer:
-        optimizer = opt_func.apply_gradients(zip(grads, trainable_params))
         # TODO(dacart): check if this should go above "optimizer =" or be deleted.
-        grads = [tf.clip_by_norm(g, 1.0) for g in grads]
+        clipped_grads = [tf.clip_by_norm(g, 1.0) for g in grads]
+        # This depends on update rule implemented in AdamOptimizer:
+        optimizer = opt_func.apply_gradients(zip(clipped_grads, trainable_params))
         return optimizer
 
     @classmethod

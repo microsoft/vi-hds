@@ -80,6 +80,8 @@ def apply_defaults(spec):
         'n_filters' : 10,
         'filter_size' :  10,
         'pool_size' : 5,
+        'lambda_l2' : 0.001,
+        'lambda_l2_hidden' : 0.001,
         'n_hidden' : 50,
         'n_batch' : 36,
         'data_format' : 'channels_last',
