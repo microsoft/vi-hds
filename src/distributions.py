@@ -32,7 +32,7 @@ def constrain_parameter(tf_free_param, free_to_constrained, distribution_name, c
 
     return tf_constrained_param
 
-def build_q_local(PARAMETERS, hidden, devs, conds, verbose, kernel_regularizer, use_bias=True, stop_grad=False):
+def build_q_local(PARAMETERS, hidden, devs, conds, verbose, kernel_regularizer, use_bias=True, stop_grad=False, plot_histograms=False):
     assert hasattr(PARAMETERS, "l"), "require local parameters"
     distribution_descriptions = PARAMETERS.l
 
@@ -57,9 +57,9 @@ def build_q_local(PARAMETERS, hidden, devs, conds, verbose, kernel_regularizer, 
             hidden_conditioned = tf.concat(to_concat, axis=1)
 
             # filter to whatever we want to condition
-            free_param = tf.keras.layers.Dense(1, use_bias=use_bias, kernel_regularizer=kernel_regularizer)
+            name = '%s_%s'%(distribution_name,free_name)
+            free_param = tf.keras.layers.Dense(1, use_bias=use_bias, kernel_regularizer=kernel_regularizer, name=name)
             tf_free_param = free_param(hidden_conditioned)
-            #name='%s_%s' % (distribution_name, free_name)
             if stop_grad:
                 tf_free_param = tf.stop_gradient(tf_free_param)  # eliminate score function term from autodiff
             tf_constrained_param = constrain_parameter(
@@ -78,7 +78,7 @@ def build_q_local(PARAMETERS, hidden, devs, conds, verbose, kernel_regularizer, 
 
     return q_local
 
-def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=None, use_bias=False, stop_grad=False, plot_histograms=True):
+def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=None, use_bias=False, stop_grad=False, plot_histograms=False):
     # make a distribution that has "log_prob(theta)" and "sample()"
     q_global_cond = ChainedDistribution(name="q_global_cond")
 
@@ -108,16 +108,15 @@ def build_q_global_cond(PARAMETERS, devs, conds, verbose, kernel_regularizer=Non
                     to_concat.append(devs)
 
             mlp_inp = tf.concat(to_concat, axis=1)
+            name = '%s_%s' % (distribution_name, free_name)
             # map sample from prior with conditioning information through 1-layer NN
-            free_param = tf.keras.layers.Dense(1, use_bias=use_bias, kernel_regularizer=kernel_regularizer)
+            free_param = tf.keras.layers.Dense(1, use_bias=use_bias, kernel_regularizer=kernel_regularizer, name=name)
             tf_free_param = free_param(mlp_inp)
             #tf_free_param = tf.layers.dense(mlp_inp, units=1, use_bias=use_bias, kernel_regularizer=kernel_regularizer, 
-            #    name='%s_%s' % (distribution_name, free_name))
             if stop_grad:
                 tf_free_param = tf.stop_gradient(tf_free_param)
-            variable_summaries(tf_free_param, 'nn_weights_%s_%s' % (distribution_name, free_name), plot_histograms)
-            tf_constrained_param = constrain_parameter(tf_free_param, free_to_constrained,
-                                                       distribution_name, constrained_name)
+            variable_summaries(tf_free_param, 'nn_%s'%name, plot_histograms)
+            tf_constrained_param = constrain_parameter(tf_free_param, free_to_constrained, distribution_name, constrained_name)
 
             params[free_name] = tf_free_param
             params[constrained_name] = tf_constrained_param
@@ -151,7 +150,7 @@ def build_q_global(PARAMETERS, verbose, stop_grad=False):
                 description.free_params, description.params, description.free_to_constrained,
                 description.init_free_params):
 
-            tf_free_param = tf.Variable(init_free)
+            tf_free_param = tf.Variable(init_free, name='%s.%s'%(distribution_name,free_name))
             if stop_grad:
                 tf_free_param = tf.stop_gradient(tf_free_param)
             tf_constrained_param = constrain_parameter(

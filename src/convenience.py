@@ -285,6 +285,7 @@ class TrainingStepper:
     def __init__(self, dreg: bool, encoder: Encoder, objective: Objective, params_dict: Dict[str, Any]):
         # using gradient descent with a learning rate schedule (these are HYPER parameters!)
         global_step = tf.Variable(0, trainable=False)
+        self.plot_histograms = params_dict["plot_histograms"]
         boundaries = default_get_value(params_dict, "learning_boundaries", [1000, 2000, 5000])
         values = [float(f) for f in default_get_value(params_dict, "learning_rates", [1e-2, 1e-3, 1e-4, 2 * 1e-5])]
         learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
@@ -301,6 +302,20 @@ class TrainingStepper:
         self.train_step = self.build_train_step(dreg, encoder, objective, opt_func)
 
     @classmethod
+    def create_dreg_gradients(self, encoder, objective, trainable_params):
+        normalized_weights = tf.stop_gradient(
+            tf.nn.softmax(objective.log_unnormalized_iws, axis=1))  # [batch_size, num_iwae]
+        sq_normalized_weights = tf.square(normalized_weights)  # [batch_size, num_iwae]
+        stopped_log_q_theta = encoder.q.log_prob(encoder.theta, stop_grad=True)
+        stopped_log_weights = GeneralLogImportanceWeights(objective.log_p_observations, encoder.log_p_theta,
+                                                          stopped_log_q_theta,
+                                                          beta=1.0)
+        neg_iwae_grad = tf.reduce_sum(sq_normalized_weights * stopped_log_weights, axis=1)  # [batch_size]
+        iwae_grad = -tf.reduce_mean(neg_iwae_grad)
+        grads = tf.gradients(iwae_grad, trainable_params)
+        return grads
+
+    #@classmethod
     def build_train_step(self, dreg, encoder, objective, opt_func):
         '''Returns a computation that is run in the tensorflow session.'''
         # This path is for b_use_correct_iwae_gradients = True. For False, we would just
@@ -316,25 +331,17 @@ class TrainingStepper:
             grads = tf.gradients(objective.vae_cost, trainable_params)
             print("Set up non-dreg gradient")
             # grads = [tf.clip_by_value(g, -0.1, 0.1) for g in iwae_grads]
+        with tf.name_scope('Gradients'):
+            for p,g in zip(trainable_params, grads):
+                variable_summaries(g, p.name.split(':')[0], self.plot_histograms)
         # TODO(dacart): check if this should go above "optimizer =" or be deleted.
-        clipped_grads = [tf.clip_by_norm(g, 1.0) for g in grads]
+        #clipped_grads = [tf.clip_by_norm(g, 1.0) for g in grads]
+        #with tf.name_scope('Gradients_Clipped'):
+        #    for g,cg in zip(grads,clipped_grads):
+        #        variable_summaries(cg, g.name.split('/')[1], self.plot_histograms)
         # This depends on update rule implemented in AdamOptimizer:
-        optimizer = opt_func.apply_gradients(zip(clipped_grads, trainable_params))
+        optimizer = opt_func.apply_gradients(zip(grads, trainable_params))
         return optimizer
-
-    @classmethod
-    def create_dreg_gradients(self, encoder, objective, trainable_params):
-        normalized_weights = tf.stop_gradient(
-            tf.nn.softmax(objective.log_unnormalized_iws, axis=1))  # [batch_size, num_iwae]
-        sq_normalized_weights = tf.square(normalized_weights)  # [batch_size, num_iwae]
-        stopped_log_q_theta = encoder.q.log_prob(encoder.theta, stop_grad=True)
-        stopped_log_weights = GeneralLogImportanceWeights(objective.log_p_observations, encoder.log_p_theta,
-                                                          stopped_log_q_theta,
-                                                          beta=1.0)
-        neg_iwae_grad = tf.reduce_sum(sq_normalized_weights * stopped_log_weights, axis=1)  # [batch_size]
-        iwae_grad = -tf.reduce_mean(neg_iwae_grad)
-        grads = tf.gradients(iwae_grad, trainable_params)
-        return grads
 
 
 class DatasetPair(object):
