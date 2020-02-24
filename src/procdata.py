@@ -224,8 +224,6 @@ class ProcData:
         '''
         Arguments:
           data_dir: a directory path
-          data_files: a list of basenames (csv files)
-          devices: a list of device names
         Returns:
           a dict with these keys and values. When there are W conditions (wells), T time points
           and S outputs (signals), the keys and the shapes of the values are:
@@ -259,17 +257,6 @@ class ProcData:
             rows.append(np.hstack(vs))
             #r_matrix[idx, r_value] = 1
         return np.array(rows)
-
-    def add_default_device(self, cassettes, device_name):
-        raise NotImplementedError("Default device not implemented")
-    #     values = np.cumsum([cm[device_name] for k,cm in self.component_maps.items()])
-    #     #s_value = self.s_component_map[device_name]
-    #     #r_value = self.r_component_map[device_name]
-    #     for cass in cassettes:
-    #         cass[s_value] = 1
-    #         # add n_s_components as horizontal offset
-    #         cass[r_value + self.n_s_components] = 1
-    #     return cassettes
 
     def process_row(self, row, headers):
         return [row.iloc[headers == signal].values for signal in self.signals]
@@ -331,3 +318,118 @@ class ProcData:
              'X': np.transpose(np.array(x_values),(0, 2, 1))
             }
         return d
+
+class Dataset(object):
+
+    def __init__(self, data, D: OrderedDict, original_data_ids: List[int],
+                 use_default_device: bool = False, default_device: str = 'Pcat_Y81C76'):
+        '''
+        :param D: OrderedDict with keys 'X', 'C', 'Observations' and 'Time'
+        :param original_data_ids: TODO(dacart): document these
+        :param conditions:
+        :param use_default_device:
+        :param default_device:
+        '''
+        self.procdata = ProcData(data)
+        # Data dictionary
+        self.D = D
+        # List of conditions (strings)
+        self.conditions = data["conditions"]
+        # Number of conditions
+        self.n_conditions = len(self.conditions)
+        # Whether to use the default device, and what it is
+        self.use_default_device = use_default_device
+        self.default_device = default_device
+        # Keep track of which ids from the original data this dataset comes from
+        self.original_data_ids = original_data_ids
+        # Numpy array of float, shape e.g. (234,86,4)
+        self.X = D['X']
+        c_panda = pd.DataFrame(D['C']['values'], columns=D['C']['columns'])
+        # Numpy array of float, shape e.g. (234,86)
+        self.C = D['C']['values'].astype(np.float32)
+        # Numpy array of float, shape e.g. (234,2)
+        self.treatments = c_panda[self.conditions].values.astype(np.float32)
+        # print("Log + 1 transform conditions")
+        self.treatments = np.log(1.0 + self.treatments)
+        self.n_treatments = len(self.treatments)
+        # Numpy array of float, shape e.g. (234,)
+        self.devices = c_panda['Device'].values.astype(int)
+        # more numpy data
+        # Numpy array of float, shape e.g. (234,86,3)
+        self.delta_X = np.diff(self.X, axis=-1)
+        # Set up set.dev_1hot, numpy array of float, shape e.g. (234,11)
+        self.dev_1hot = None
+        self.prepare_devices(self.use_default_device)
+
+    #     ONE-HOT ENCODING OF DEVICE ID        #
+    def prepare_devices(self, use_default_device):
+        self.dev_1hot = np.zeros((self.size(), self.procdata.device_depth))
+        self.dev_1hot = self.procdata.get_cassettes(self.devices)
+        if use_default_device:
+            print("Adding Default device: %s")
+            self.dev_1hot = self.procdata.add_default_device(self.dev_1hot, self.default_device)
+
+    def size(self):
+        return len(self.X)
+
+    def create_feed_dict(self, placeholders, u_value):
+        return {placeholders.x_obs: self.X,
+                placeholders.dev_1hot: self.dev_1hot,
+                placeholders.conds_obs: self.treatments,
+                placeholders.beta: 1.0,
+                placeholders.u: u_value}
+
+    def create_feed_dict_for_index(self, placeholders, index, beta_val, u_value):
+        return {placeholders.x_obs: self.X[index],
+                placeholders.dev_1hot: self.dev_1hot[index],
+                placeholders.conds_obs: self.treatments[index],
+                placeholders.beta: beta_val,
+                placeholders.u: u_value}
+
+
+class DatasetPair(object):
+    '''A holder for a training and validation set and various associated parameters.'''
+    # pylint: disable=too-many-instance-attributes,too-few-public-methods
+
+    def __init__(self, train: Dataset, val: Dataset): # use_default_device=False):
+        '''
+        :param train: a Dataset containing the training data
+        :param val: a Dataset containing the validation data
+        '''
+        # Dataset of the training data
+        self.train = train
+        # Dataset of the validation data
+        self.val = val
+        # List of scaling statistics (floats, built by scale_data)
+        self.scales = []
+        self.scale_data()
+        # Number of training instances (int)
+        self.n_train = self.train.size()
+        # Number of validation instances (int)
+        self.n_val = self.val.size()
+        # Number of species we're training on (int)
+        self.n_species = self.train.X.shape[2]
+        # Number of time points we're training on
+        self.n_time = self.train.X.shape[1]
+        # Number of group-level parameters (summed over all groups; int)
+        self.depth = self.train.procdata.device_depth
+        # Number of conditions we're training on
+        self.n_conditions = self.train.n_conditions
+        # Numpy array of time-point values (floats), length self.n_time
+        self.times = self.train.D['Time'].astype(np.float32)
+
+    def scale_data(self):
+        od, rfp, yfp, cfp = 0, 1, 2, 3  # constants for defining data
+        outputs = [od, rfp, yfp, cfp]
+        def compute_scaling_statistic(array):
+            return np.max(array)
+        for output_idx in outputs:
+            # First scale the data according to the train
+            output_statistic = compute_scaling_statistic(self.train.X[:, :, output_idx])
+            self.scales.append(output_statistic)
+            self.train.X[:, :, output_idx] /= self.scales[output_idx].astype(np.float32)
+            self.val.X[:, :, output_idx] /= self.scales[output_idx].astype(np.float32)
+            # mins = np.min(np.min(self.train.X[:, :, output_idx], axis=1))
+            # Second, shift so smallest value for each time series is 0
+            self.train.X[:, :, output_idx] -= np.min(self.train.X[:, :, output_idx], axis=1)[:, np.newaxis]
+            self.val.X[:, :, output_idx] -= np.min(self.val.X[:, :, output_idx], axis=1)[:, np.newaxis]

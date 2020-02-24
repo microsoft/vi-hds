@@ -22,8 +22,7 @@ import tensorflow as tf
 import procdata
 from parameters import Parameters
 from plotting import plot_prediction_summary, xval_treatments, plot_weighted_theta
-from convenience import Dataset, Decoder, Encoder, SessionVariables, LocalAndGlobal, Objective
-from convenience import Placeholders, TrainingLogData, TrainingStepper, DatasetPair
+from convenience import Decoder, Encoder, SessionVariables, LocalAndGlobal, Objective, Placeholders, TrainingLogData, TrainingStepper
 from xval import XvalMerge
 from utils import load_config_file, make_summary_image_op, variable_summaries, Trainer, get_data_directory, apply_defaults
 
@@ -115,7 +114,7 @@ class Runner:
     def _decide_dataset_pair(all_ids, val_ids, loaded_data, data_settings):
         train_ids = np.setdiff1d(all_ids, val_ids)
         train_data, val_data = procdata.split_by_train_val_ids(loaded_data, train_ids, val_ids)
-        return DatasetPair(Dataset(data_settings, train_data, train_ids), Dataset(data_settings, val_data, val_ids))
+        return procdata.DatasetPair(procdata.Dataset(data_settings, train_data, train_ids), procdata.Dataset(data_settings, val_data, val_ids))
 
     def _prepare_data(self, data_settings: Dict[str, str]):
         '''data: a dictionary of the form {'devices': [...], 'files': [...]}
@@ -133,9 +132,9 @@ class Runner:
         if self.args.heldout:
             # We specified a holdout device to act as the validation set.
             d_train, d_val, train_ids, val_ids = procdata.split_holdout_device(self.procdata, loaded_data, self.args.heldout)
-            train_dataset = Dataset(data_settings, d_train, train_ids)
-            val_dataset = Dataset(data_settings, d_val, val_ids)
-            self.dataset_pair = DatasetPair(train_dataset, val_dataset)
+            train_dataset = procdata.Dataset(data_settings, d_train, train_ids)
+            val_dataset = procdata.Dataset(data_settings, d_val, val_ids)
+            self.dataset_pair = procdata.DatasetPair(train_dataset, val_dataset)
         else:
             # Number of conditions (wells) in the data.
             loaded_data_length = loaded_data['X'].shape[0] # len(loaded_data['X'])
