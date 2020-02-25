@@ -6,7 +6,7 @@ from __future__ import absolute_import
 import os
 import procdata
 import numpy as np
-from src.run_xval_icml import run_on_split, create_parser
+from src.run_xval import run_on_split, create_parser
 from src.xval import XvalMerge
 from src.utils import Trainer, load_config_file
 

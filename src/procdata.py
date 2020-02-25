@@ -376,6 +376,8 @@ class Dataset(object):
         # Set up set.dev_1hot, numpy array of float, shape e.g. (234,11)
         self.dev_1hot = None
         self.prepare_devices(self.use_default_device)
+        # Apply normalization or specified scales
+        self.scale_data()
 
     #     ONE-HOT ENCODING OF DEVICE ID        #
     def prepare_devices(self, use_default_device):
@@ -402,7 +404,20 @@ class Dataset(object):
                 placeholders.beta: beta_val,
                 placeholders.u: u_value}
 
-
+    def scale_data(self):
+        n_outputs = np.shape(self.X)[2]
+        if self.procdata.normalize is None:
+            self.scales = [np.max(self.X[:, :, i]).astype(np.float32) for i in range(n_outputs)]
+        else:
+            self.scales = self.train.procdata.normalize
+        for i, scale in enumerate(self.scales):
+            # First scale the data
+            self.X[:, :, i] /= scale
+            # mins = np.min(np.min(self.train.X[:, :, output_idx], axis=1))
+            # Second, shift so smallest value for each time series is 0
+            if self.procdata.subtract_background:
+                self.X[:, :, i] -= np.min(self.X[:, :, i], axis=1)[:, np.newaxis]
+            
 class DatasetPair(object):
     '''A holder for a training and validation set and various associated parameters.'''
     # pylint: disable=too-many-instance-attributes,too-few-public-methods
@@ -416,9 +431,6 @@ class DatasetPair(object):
         self.train = train
         # Dataset of the validation data
         self.val = val
-        # List of scaling statistics (floats, built by scale_data)
-        self.scales = []
-        self.scale_data()
         # Number of training instances (int)
         self.n_train = self.train.size()
         # Number of validation instances (int)
@@ -433,22 +445,3 @@ class DatasetPair(object):
         self.n_conditions = self.train.n_conditions
         # Numpy array of time-point values (floats), length self.n_time
         self.times = self.train.D['Time'].astype(np.float32)
-
-    def scale_data(self):
-        od, rfp, yfp, cfp = 0, 1, 2, 3  # constants for defining data
-        outputs = [od, rfp, yfp, cfp]
-        def compute_scaling_statistic(array):
-            return np.max(array)
-        for output_idx in outputs:
-            # First scale the data
-            if self.train.procdata.normalize is None:
-                output_statistic = compute_scaling_statistic(self.train.X[:, :, output_idx]).astype(np.float32)
-                self.scales = output_statistic
-            else:
-                self.scales = self.train.procdata.normalize
-            self.train.X[:, :, output_idx] /= self.scales[output_idx]
-            self.val.X[:, :, output_idx] /= self.scales[output_idx]
-            # mins = np.min(np.min(self.train.X[:, :, output_idx], axis=1))
-            # Second, shift so smallest value for each time series is 0
-            self.train.X[:, :, output_idx] -= np.min(self.train.X[:, :, output_idx], axis=1)[:, np.newaxis]
-            self.val.X[:, :, output_idx] -= np.min(self.val.X[:, :, output_idx], axis=1)[:, np.newaxis]
