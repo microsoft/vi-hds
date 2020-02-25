@@ -13,13 +13,10 @@ data:
   files: ['proc140916.csv','proc140930.csv','proc141006.csv','proc141021.csv','proc141023.csv','proc141028.csv']
   signals: ["OD", "mRFP1", "EYFP", "ECFP"]
   conditions: ["C6","C12"]
-  plotSeparatedConditions: true
+  separated_conditions: True
   
 params:
   model: !!python/object:models.dr_constant.DR_Constant {}
-  theta_columns: ['aYFP','aCFP','aR','aS','r','K']
-  lambda_l2: 0.001
-  lambda_l2_hidden: 0.001
   learning_boundaries: [250,1000]
   learning_rates: [0.01,0.002,0.0002]
 
@@ -35,7 +32,9 @@ params:
 
   global_conditioned:
     conditioning: { devices: true, treatments: false }
-    
+    #aR:   { distribution: LogNormal, mu:  1.0, sigma: 3.0}
+    #aS:   { distribution: LogNormal, mu:  1.0, sigma: 3.0}
+
   global:    
     prec_x:   { distribution: data_precision_lognormal_x}
     prec_rfp: { distribution: data_precision_lognormal}
@@ -68,7 +67,6 @@ params:
   # LOCAL PARAMETERS:
   local:
     conditioning: { devices: true, treatments: False }
-
     r:    {distribution: LogNormal, mu: 0.0,   sigma: 0.25}
     K:    {distribution: LogNormal, mu: 1.0,   prec: 2.0}
     tlag: {distribution: LogNormal, mu: 0.0,   prec: 2.0}

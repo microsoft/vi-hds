@@ -4,7 +4,7 @@
 import os
 import numpy as np
 import tensorflow as tf
-
+import procdata
 import plotting
 from utils import make_summary_image_op
 import matplotlib.pyplot as pp # pylint:disable=wrong-import-order
@@ -12,10 +12,8 @@ import matplotlib.pyplot as pp # pylint:disable=wrong-import-order
 class XvalMerge(object):
 
     def __init__(self, args, data_settings, trainer):
-        if "plotSeparatedConditions" in data_settings:
-            self.separated_inputs = data_settings["plotSeparatedConditions"]
-        else:
-            self.separated_inputs = False
+        data = procdata.apply_defaults(data_settings)
+        self.separated_inputs = data["separate_conditions"]
         self.device_names = data_settings["devices"]
         self.conditions = data_settings["conditions"]
         self.elbo = []

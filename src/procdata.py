@@ -173,6 +173,16 @@ def onehot(i,n):
 
 def depth(group_values):
     return len(set([g for g in group_values if g is not None]))
+
+def apply_defaults(spec):
+    params = {
+        'normalize': None,
+        'subtract_background': True,
+        'separate_conditions': False
+    }
+    for k in spec:
+        params[k] = spec[k]
+    return params
     
 class ProcData:
     '''
@@ -180,7 +190,9 @@ class ProcData:
     Currently this is just the double-receiver experiment, but in future we may generalize
     it, either by subclassing or by handing over parameters to the constructor.
     '''
-    def __init__(self, data):
+    def __init__(self, data_settings):
+        # Apply defaults 
+        data = apply_defaults(data_settings)
         # Measurable output signals: optical density and three fluorescent proteins.
         self.signals = data["signals"]
         # The different devices we work with
@@ -219,6 +231,10 @@ class ProcData:
         self.device_idx_to_device_name = dict(enumerate(self.device_names))
         # Map from device indices (as floats) to device names
         self.device_lookup = {v: k for k, v in self.device_map.items()}
+        # Normalisation constants
+        self.normalize = data["normalize"]
+        # Background subtraction
+        self.subtract_background = data["subtract_background"]
         
     def load_all(self, data_dir) -> Dict[str, Any]:
         '''
@@ -424,11 +440,14 @@ class DatasetPair(object):
         def compute_scaling_statistic(array):
             return np.max(array)
         for output_idx in outputs:
-            # First scale the data according to the train
-            output_statistic = compute_scaling_statistic(self.train.X[:, :, output_idx])
-            self.scales.append(output_statistic)
-            self.train.X[:, :, output_idx] /= self.scales[output_idx].astype(np.float32)
-            self.val.X[:, :, output_idx] /= self.scales[output_idx].astype(np.float32)
+            # First scale the data
+            if self.train.procdata.normalize is None:
+                output_statistic = compute_scaling_statistic(self.train.X[:, :, output_idx]).astype(np.float32)
+                self.scales = output_statistic
+            else:
+                self.scales = self.train.procdata.normalize
+            self.train.X[:, :, output_idx] /= self.scales[output_idx]
+            self.val.X[:, :, output_idx] /= self.scales[output_idx]
             # mins = np.min(np.min(self.train.X[:, :, output_idx], axis=1))
             # Second, shift so smallest value for each time series is 0
             self.train.X[:, :, output_idx] -= np.min(self.train.X[:, :, output_idx], axis=1)[:, np.newaxis]
