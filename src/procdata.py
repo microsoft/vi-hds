@@ -409,7 +409,7 @@ class Dataset(object):
         if self.procdata.normalize is None:
             self.scales = [np.max(self.X[:, :, i]).astype(np.float32) for i in range(n_outputs)]
         else:
-            self.scales = self.train.procdata.normalize
+            self.scales = self.procdata.normalize
         for i, scale in enumerate(self.scales):
             # First scale the data
             self.X[:, :, i] /= scale
