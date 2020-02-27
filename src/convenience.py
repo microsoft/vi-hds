@@ -219,6 +219,7 @@ class TrainingStepper:
         # using gradient descent with a learning rate schedule (these are HYPER parameters!)
         global_step = tf.Variable(0, trainable=False)
         self.plot_histograms = params_dict["plot_histograms"]
+        self.tb_gradients = params_dict["tb_gradients"]
         boundaries = default_get_value(params_dict, "learning_boundaries", [1000, 2000, 5000])
         values = [float(f) for f in default_get_value(params_dict, "learning_rates", [1e-2, 1e-3, 1e-4, 2 * 1e-5])]
         learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
@@ -264,14 +265,12 @@ class TrainingStepper:
             grads = tf.gradients(objective.vae_cost, trainable_params)
             print("Set up non-dreg gradient")
             # grads = [tf.clip_by_value(g, -0.1, 0.1) for g in iwae_grads]
-        with tf.name_scope('Gradients'):
-            for p,g in zip(trainable_params, grads):
-                variable_summaries(g, p.name.split(':')[0], self.plot_histograms)
+        if self.tb_gradients:
+            with tf.name_scope('Gradients'):
+                for p,g in zip(trainable_params, grads):
+                    variable_summaries(g, p.name.split(':')[0], self.plot_histograms)
         # TODO(dacart): check if this should go above "optimizer =" or be deleted.
         #clipped_grads = [tf.clip_by_norm(g, 1.0) for g in grads]
-        #with tf.name_scope('Gradients_Clipped'):
-        #    for g,cg in zip(grads,clipped_grads):
-        #        variable_summaries(cg, g.name.split('/')[1], self.plot_histograms)
         # This depends on update rule implemented in AdamOptimizer:
         optimizer = opt_func.apply_gradients(zip(grads, trainable_params))
         return optimizer

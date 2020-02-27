@@ -93,6 +93,7 @@ def apply_defaults(spec):
         'transfer_func' : tf.nn.tanh,
         'n_hidden_decoder_precisions' : 20,
         'n_growth_layers' : 4,
+        'tb_gradients' : False,
         'plot_histograms' : False
     }
     for k in spec:
