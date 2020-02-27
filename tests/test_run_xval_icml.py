@@ -35,11 +35,11 @@ def pre_test(pattern, num_folds):
     results_dir = tempfile.mkdtemp()
     os.environ['INFERENCE_RESULTS_DIR'] = results_dir
     if num_folds > 1:
-        cmd = ('python src/%s.py --yaml=specs/dr_blackbox_xval.yaml --folds=%d '
-            '--experiment=TEST --epochs=8 --test_epoch=4 --train_sample=10 --test_samples=10') % (pattern, num_folds)
+        cmd = ('python src/%s.py --folds=%d --experiment=TEST --epochs=8 --test_epoch=4 '
+            '--train_sample=10 --test_samples=10 specs/dr_blackbox_xval.yaml') % (pattern, num_folds)
     else:
-        cmd = ('python src/%s.py --yaml=specs/dr_blackbox_xval.yaml '
-            '--experiment=TEST --epochs=8 --test_epoch=4 --train_sample=10 --test_samples=10') % pattern
+        cmd = ('python src/%s.py --experiment=TEST --epochs=8 --test_epoch=4 '
+            '--train_sample=10 --test_samples=10 specs/dr_blackbox_xval.yaml') % pattern
     cmd_tokens = cmd.split()
     result = subprocess.run(cmd_tokens, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     assert result.returncode == 0
@@ -94,7 +94,7 @@ def test_run_xval_icml():
     Tests that a relatively quick (1 minute or so) call of run_xval_icml.py, with two test epochs,
     has a higher validation ELBO on the second test epoch than the first.
     '''
-    pre_test('run_xval_icml', 1)
+    pre_test('run_xval', 1)
 
 def test_folds2():
     '''

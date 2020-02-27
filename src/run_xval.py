@@ -409,7 +409,7 @@ class Runner:
 
 def create_parser(with_split: bool):
     parser = argparse.ArgumentParser(description='VI-HDS')
-    parser.add_argument('--yaml', type=str, help='Name of yaml spec file')
+    parser.add_argument('yaml', type=str, help='Name of yaml spec file')
     parser.add_argument('--experiment', type=str, default='unnamed', help='Name for experiment, also location of tensorboard and saved results')
     parser.add_argument('--seed', type=int, default=0, help='Random seed (default: 0)')
     parser.add_argument('--epochs', type=int, default=1000, help='Training epochs')

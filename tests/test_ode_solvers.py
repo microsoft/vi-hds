@@ -16,11 +16,11 @@ import re
 import models.dr_constant
 import utils
 import distributions
-from run_xval_icml import Runner, create_parser
+from run_xval import Runner, create_parser
 
 # Load a spec (YAML)
 parser = create_parser(False)
-args = parser.parse_args(['--yaml','./specs/dr_constant_xval.yaml'])
+args = parser.parse_args(['./specs/dr_constant_icml.yaml'])
 spec = utils.load_config_file(args.yaml)  # spec is a dict of dicts of dicts
 params = spec['params']
 model = params['model']
@@ -65,8 +65,11 @@ sol_mod = model.simulate(theta, constants, times, conditions, dev_1hot, 'modeule
 sess = tf.Session()
 sess.run(tf.global_variables_initializer()) 
 [mod, rk4] = sess.run([sol_mod, sol_rk4])
+print(np.shape(mod))
 
 # Ensure that the relative error is no bigger than 5%
-Y0 = mod[0][0]
-Y1 = rk4[0][0]
+Y0 = mod[0][0][-1]
+#print(Y0)
+Y1 = rk4[0][0][-1]
+#print(Y1)
 assert np.nanmax(np.abs((Y0 - Y1) / Y0)) < 0.05, 'Difference between Modified Euler and RK4 solvers greater than 5%'
