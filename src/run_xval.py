@@ -287,7 +287,7 @@ class Runner:
         test_start = time.time()
         # print("----------  BEGIN TESTING -----------------")
         self.train_feed_dict[self.placeholders.u] = np.random.randn(
-            self.dataset_pair.n_train, self.args.test_samples, self.n_theta)
+            self.dataset_pair.n_train, self.args.train_samples, self.n_theta)
         training_output = SessionVariables(sess.run(eval_tensors + [merged], feed_dict=self.train_feed_dict))
         train_writer.add_summary(training_output.summaries, epoch)
         print(" | train (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(training_output.elbo, log_data.total_train_time / epoch, log_data.total_train_time), end='', flush=True)
