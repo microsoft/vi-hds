@@ -2,7 +2,7 @@
 # Licensed under a Microsoft Research License.
 
 import numpy as np
-from distributions import TfDirac, TfKumaraswamy, TfLogNormal, TfNormal, TfTruncatedNormal
+from distributions import TfKumaraswamy, TfLogNormal, TfNormal, TfTruncatedNormal, TfConstant
 from utils import default_get_value
 
 class DistributionDescription(object):
@@ -133,22 +133,21 @@ class DistributionDescription(object):
 
             self.other_params["zmin"] = default_get_value(defaults, "zmin", 0.0)
             self.other_params["zmax"] = default_get_value(defaults, "zmax", 1.0)
-        elif class_type == TfDirac:
+        elif class_type == TfConstant:
             self.nbr_free_params = 1
-            self.free_params = ["mu"]
-            self.params = ["mu"]
-            self.free_to_constrained = ["identity", "positive"]
+            self.free_params = ["value"]
+            self.params = ["value"]
+            self.free_to_constrained = ["identity"]
 
-            mu_dependency = None
-            prec_dependency = None
+            value_dependency = None
+            
+            init_value = 0.0
+            if "value" in defaults:
+                init_value = defaults["value"]
 
-            init_mu = 0.0
-            if "mu" in defaults:
-                init_mu = defaults["mu"]
-
-            self.init_params = [init_mu]
-            self.init_free_params = [init_mu]
-            self.dependencies = [mu_dependency]
+            self.init_params = [init_value]
+            self.init_free_params = [init_value]
+            self.dependencies = [value_dependency]
         else:
             raise NotImplementedError("unknown class type %s" % (str(class_type)))
 
@@ -196,6 +195,10 @@ def instantiate_from_specs(name, specs, conditioning):
         zmax = default_get_value(specs, "zmax", 1.0)
         s = {'a':a, "b":b, "zmin":zmin, "zmax":zmax, "c":conditioning}
         return DistributionDescription(name, TfKumaraswamy, s) #TfLogNormal(**s) #mu=float(specs['mu']), scale=float(specs['scale']))
+    if sd == "Constant":
+        value = default_get_value(specs, "value", 0.0)
+        s = {'value':value}
+        return DistributionDescription(name, TfConstant, s)
     print("instantiate_from_specs:: cannot instantiate %s" % sd)
     return None
 
@@ -229,7 +232,8 @@ class Parameters(object):
         n_local = self.l.get_parameter_counts() if hasattr(self, "l") else 0
         n_global_cond = self.g_c.get_parameter_counts() if hasattr(self, "g_c") else 0
         n_global = self.g.get_parameter_counts() if hasattr(self, "g") else 0
-        return n_local, n_global_cond, n_global
+        n_constant = self.c.get_parameter_counts() if hasattr(self, "c") else 0
+        return n_local, n_global_cond, n_global, n_constant
 
     def add_shared(self, p):
         self.s = p
@@ -243,6 +247,9 @@ class Parameters(object):
     def add_local(self, p):
         self.l = p
 
+    def add_constant(self, p):
+        self.c = p
+
     def is_shared(self, p_name):
         return hasattr(self, "s") and hasattr(self.s, p_name)
 
@@ -254,6 +261,9 @@ class Parameters(object):
 
     def is_local(self, p_name):
         return hasattr(self, "l") and hasattr(self.l, p_name)
+
+    def is_constant(self, p_name):
+        return hasattr(self, "c") and hasattr(self.c, p_name)
 
     def get_shared(self, p_name):
         if self.is_shared(p_name):
@@ -275,6 +285,12 @@ class Parameters(object):
             return getattr(self.l, p_name)
         raise AttributeError
 
+    def get_constant(self, p_name):
+        if self.is_constant(p_name):
+            return getattr(self.c, p_name)
+        raise AttributeError
+
+
     def pretty_print(self):
         if hasattr(self, "s"):
             print("-----------------\nSHARED parameters\n-----------------")
@@ -288,6 +304,9 @@ class Parameters(object):
         if hasattr(self, "l"):
             print("-----------------\nLOCAL parameters\n-----------------")
             print(self.l)
+        if hasattr(self, "c"):
+            print("-----------------\nCONSTANT parameters\n-----------------")
+            print(self.c)
 
     def load(self, params_dict):
         # Store the incoming "params_dict" object (originating from the YAML file) to save
@@ -297,6 +316,7 @@ class Parameters(object):
         self.load_global(params_dict)
         self.load_global_cond(params_dict)
         self.load_local(params_dict)
+        self.load_constant(params_dict)
 
     def load_for_flow(self, params_dict):
         #self.load_shared_distributions(params_dict)
@@ -321,11 +341,29 @@ class Parameters(object):
 
         self.add_shared(p)
 
+    def load_constant(self, params_dict, keyword="constant"):
+
+        p = DotOperatorParams()
+        if keyword not in params_dict:
+            print("load_%s_params:: None found in params_dict" % keyword)
+            return
+
+        keyword_dict = params_dict[keyword]
+        # get conditioning statements first
+        conditioning = None
+        if 'conditioning' in keyword_dict:
+            raise Exception("constant params can't have conditioning") #
+
+        for k, v in keyword_dict.items():
+            if k == 'conditioning':
+                continue
+            p.add_from_spec(k, {'distribution':'Constant', 'value':v}, conditioning)
+
+        self.add_constant(p)
+
     def load_global(self, params_dict, keyword="global"):
 
-        #keyword = 'global'
         p = DotOperatorParams()
-
         if keyword not in params_dict:
             print("load_%s_params:: None found in params_dict" % keyword)
             return

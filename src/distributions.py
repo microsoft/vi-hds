@@ -169,6 +169,38 @@ def build_q_global(PARAMETERS, verbose, stop_grad=False):
 
     return q_global
 
+def build_q_constant(PARAMETERS, verbose, stop_grad=False):
+    # make a distribution that has "log_prob(theta)" and "sample()"
+    q_constant = ChainedDistribution(name="q_constant")
+
+    if not hasattr(PARAMETERS, "c"):
+        print("- Found no constant parameters")
+        return q_constant
+
+    distribution_descriptions = PARAMETERS.c
+
+    for distribution_name in distribution_descriptions.list_of_params:
+        description = getattr(distribution_descriptions, distribution_name)
+        if verbose:
+            print("- build_q_constant::%s" % distribution_name)
+        params = OrderedDict()
+        for free_name, constrained_name, free_to_constrained, init_free in zip(
+                description.free_params, description.params, description.free_to_constrained,
+                description.init_free_params):
+
+            tf_free_param = tf.Variable(init_free, name='%s.%s'%(distribution_name,free_name), trainable=False)
+            params[free_name] = tf_free_param
+
+        for other_param_name, other_param_value in description.other_params.items():
+            params[other_param_name] = other_param_value
+
+        new_distribution = description.class_type(wait_for_assigned=True, variable=False)
+        new_distribution.assign_free_and_constrained(**params)
+
+        q_constant.add_distribution(distribution_name, new_distribution)
+
+    return q_constant
+
 def build_p_global(PARAMETERS, verbose, theta=None):
     # p_global: generative model with fixed distribution parameters; ie the top-level distributions
 
@@ -214,6 +246,52 @@ def build_p_global(PARAMETERS, verbose, theta=None):
         p_global.add_distribution(distribution_name, new_distribution, slots)
 
     return p_global
+
+def build_p_constant(PARAMETERS, verbose, theta=None):
+    # p_global: generative model with fixed distribution parameters; ie the top-level distributions
+
+    # make a distribution that has "log_prob(theta)" and "sample()"
+    p_constant = ChainedDistribution(name="p_constant")
+
+    if not hasattr(PARAMETERS, "c"):
+        print("- Found no constant parameters")
+        return p_constant
+
+    assert hasattr(PARAMETERS, "c"), "require constant parameters"
+    distribution_descriptions = PARAMETERS.c
+
+    for distribution_name in distribution_descriptions.list_of_params:
+        if verbose:
+            print("- build_p_constant::%s"%distribution_name)
+
+        description = getattr(distribution_descriptions, distribution_name)
+
+        params = OrderedDict()
+        slots = OrderedDict()
+        # check for dependencies
+        for (constrained_name, dependency) in zip(description.params, description.dependencies):
+            if dependency is None:
+                continue
+            # TODO(dacart): arguments for format string missing
+            #if verbose:
+            #    print("build_p_constant: found dependency for %s = %s" % )
+            if theta is None:
+                if verbose:
+                    print("build_p_constant: empty slot for dependency!")
+                params[constrained_name] = None
+                slots[constrained_name] = dependency
+            else:
+                params[constrained_name] = getattr(theta, dependency)
+
+        # for each default param not already found via dependency, add to params
+        for constrained_name, default_value in description.defaults.items():
+            if constrained_name not in params:
+                params[constrained_name] = default_value
+
+        new_distribution = description.class_type(**params)
+        p_constant.add_distribution(distribution_name, new_distribution, slots)
+
+    return p_constant
 
 def build_p_global_cond(PARAMETERS, verbose, theta=None):
     p_global_cond = ChainedDistribution(name="p_global_cond")
@@ -446,10 +524,7 @@ class ChainedDistribution(object):
             if name == "dummy":
                 pdb.set_trace()
             theta = distribution.sample(list_of_u[:, :, idx], stop_grad)
-
-            #print name, theta
             samples.add(name, theta)
-            #idx += 1
         return samples
 
     def add_distribution(self, key, value, slots=None):
@@ -518,7 +593,6 @@ class TfCrnDistribution(ABC):
 
     def clip(self, sample, stddevs=3):
         return sample
-        # return tf.clip_by_value(sample, -np.inf, np.inf)
 
     @abstractmethod
     def get_tensors(self):
@@ -547,85 +621,29 @@ class TfCrnDistribution(ABC):
     # def assign_free_and_constrained(...):
     #   pass
 
-class TfDirac(TfCrnDistribution):
+class TfConstant(TfCrnDistribution):
+    
+    def __init__(self, c=None, value=None, wait_for_assigned=False, variable=False):
+        super(TfConstant, self).__init__(variable)
+        self.value = value
+        self.nbr_params = 1
+        self.param_names = ["value"]
 
-    def __init__(self, mu=None, prec=None, wait_for_assigned=False):
-        # TODO(dacart): set self.prec and self.param_names somehow, as they're needed below.
-        # python2 version: super(TfCrnDistribution, self).__init__()
-        super().__init__()
-
-        # self.waiting_slots["mu"] = True
-        # if wait_for_assigned is True:
-
-        self.mu = mu
-        #     self.sigma = sigma
-        self.prec = prec
-
-        # else:
-        #     self.mu = mu
-        #     if sigma is None:
-        #         if prec is not None:
-        #             sigma = 1.0/tf.sqrt(prec)
-        #     else:
-        #         # a sigma param is passed in
-
-        #         #if prec is not None:
-        #         #    #assert prec is None,  "Need sigma or precision, not both."
-        #         prec = 1.0/(sigma*sigma)
-
-        #     self.sigma = sigma
-        #     self.prec = prec
-
-        # if we have values for slots, we arent waiting for them
-        # if self.prec is not None:
-        #     self.waiting_slots["prec"] = False
-        # if self.mu is not None:
-        #     self.waiting_slots["mu"] = False
-
-        # TODO: remove these guys
-        # self.nbr_params = 2
-        self.param_names = ["mu","prec"]
-
-    def assign_free_and_constrained(self, mu):
-        self.mu = mu
-        # self.log_prec = log_prec
-        # self.prec = prec
-        # if prec is not None:
-        #     self.sigma = 1.0/tf.sqrt(prec)
-
-        # # if we have values for slots, we arent waiting for them
-        # if self.prec is not None:
-        #     self.waiting_slots["prec"] = False
-        if self.mu is not None:
-            self.waiting_slots["mu"] = False
+    def assign_free_and_constrained(self, value):
+        self.value = value
+        if self.value is not None:
+            self.waiting_slots["value"] = False
 
     def fill_slots(self, slots, samples):
-        if self.waiting_slots["mu"] is True:
-            self.mu = getattr(samples, slots['mu'])
-            self.waiting_slots["mu"] = False
-
-        # if self.waiting_slots["prec"] is True:
-        #     self.prec = getattr(samples, slots['prec'])
-        #     self.waiting_slots["prec"] = False
-        #     self.sigma = 1.0/tf.sqrt(self.prec)
+        if self.waiting_slots["value"] is True:
+            self.value = getattr(samples, slots['value'])
+            self.waiting_slots["value"] = False
 
     def sample(self, u, stop_grad):  # TODO reshape
-        if stop_grad:
-            return tf.stop_gradient(self.mu)
-        return self.mu # ??* tf.ones(shape=tf.shape(u), self.mu) #+ self.sigma*u
+        return tf.zeros_like(u) + self.value
 
-    def clip(self, x, stddevs=3):  # don't clip a delta distribution
-        # lower = self.mu - stddevs*self.sigma
-        # upper = self.mu + stddevs*self.sigma
-        # x = tf.clip_by_value(x, lower, upper)
-        return x
-
-    def log_prob(self, x, stop_grad):  # TODO
-        if stop_grad == True:
-            prec = tf.stop_gradient(self.prec)
-            mu = tf.stop_gradient(self.mu)
-            return -LOG2PI + 0.5 * tf.log(prec + 1e-12) - 0.5 * prec * tf.square(mu - x)
-        return -LOG2PI + 0.5*tf.log(self.prec + 1e-12) -0.5*self.prec*tf.square(self.mu-x)
+    def log_prob(self, x, stop_grad):
+        return tf.zeros_like(x)
 
     def __str__(self):
         s = "%s " % (self.__class__)
@@ -635,14 +653,14 @@ class TfDirac(TfCrnDistribution):
         return s
 
     def get_tensors(self):
-        return [self.mu]
+        return [self.value]
 
     def attach_summaries(self, name, plot_histograms):
-        variable_summaries(self.mu, name+'_mu', plot_histograms)
+        ()
         # self._attach_summary_ops(self.prec, 'prec', name)
 
     def get_tensor_names(self, name):
-        return ["%s.mu" % name]#, "%s.prec" % name]
+        return ["%s.value" % name]#, "%s.prec" % name]
 
 class TfNormal(TfCrnDistribution):
 
@@ -719,8 +737,11 @@ class TfNormal(TfCrnDistribution):
         if stop_grad == True:
             prec = tf.stop_gradient(self.prec)
             mu = tf.stop_gradient(self.mu)
-            return -LOG2PI + 0.5 * tf.log(prec + 1e-12) - 0.5 * prec * tf.square(mu - x)
-        return -LOG2PI + 0.5*tf.log(self.prec + 1e-12) -0.5*self.prec*tf.square(self.mu-x)
+        else:
+            prec = self.prec
+            mu = self.mu
+        return -LOG2PI + 0.5 * tf.log(prec + 1e-12) - 0.5 * prec * tf.square(mu - x)
+        #return -LOG2PI + 0.5*tf.log(self.prec + 1e-12) -0.5*self.prec*tf.square(self.mu-x)
 
     def __str__(self):
         s = "%s " % self.__class__
@@ -910,32 +931,11 @@ class TfKumaraswamy(TfCrnDistribution):
     def standard_sample(self, u, stop_grad):
         raise NotImplementedError("standard_sample for TfKumaraswamy hasn't been implemented with stop_grad argument yet")
 
-        #sample = torch.pow(1 - pow(1 - eps, one_div_b), one_div_a)
-        #sample = torch.clamp(sample, 0.001, 0.999)
-
-        #return tf.clip_by_value(
-        #    tf.pow(1 - tf.clip_by_value(tf.pow(1-u, self.one_over_b), 0.001, 0.999), self.one_over_a),
-        #    0.001, 0.999)
-
     def sample(self, u, stop_grad):
         raise NotImplementedError("sample for TfKumaraswamy hasn't been implemented with stop_grad argument yet")
 
-        #standard_z = self.standard_sample(self.std_normal_2_uniform(u))
-        #s = self.zmin + self.zrange*standard_z
-        #return s
-
-
     def log_prob(self, x, stop_grad):
         raise NotImplementedError("log_prob for TfKumaraswamy hasn't been implemented with stop_grad argument yet")
-
-        #print("TfKumaraswamy::log_prob")
-        #print(self.zmin)
-        #print(self.zrange)
-        #print(x)
-        #z = (x-self.zmin)/self.zrange
-        ##logprob = log_a + log_b + (a-1)*log_x + (b-1)*torch.log(torch.clamp(1-torch.pow(x,a),0.0001,1.0))
-        #return self.log_a + self.log_b + (self.a-1.0)*tf.log(tf.clip_by_value(z, 0.0001, 1.0)) + \
-        #    (self.b-1.0)*tf.log(tf.clip_by_value(1.0 - tf.pow(z, self.a), 0.0001, 1.0))
 
     # convert
     def std_normal_2_uniform(self, eta):

@@ -24,7 +24,7 @@ params:
   learning_rates: [0.01,0.002,0.0002]
   n_hidden_decoder_precisions: 4
 
-  constants: { init_x: 0.002, init_rfp: 0.0, init_yfp: 0.0, init_cfp: 0.0, init_luxR: 0.0, init_lasR: 0.0 }
+  constant: { init_x: 0.002, init_rfp: 0.0, init_yfp: 0.0, init_cfp: 0.0, init_luxR: 0.0, init_lasR: 0.0 }
   
   # SHARED PARAMETERS 
   shared:

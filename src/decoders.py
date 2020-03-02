@@ -6,15 +6,14 @@ static_rnn = tf.nn.static_rnn
 
 class ODEDecoder(object):
     def __init__(self, params):
-        self.constants = params["constants"]
         self.solver = params["solver"]
         self.ode_model = params["model"]
 
     def __call__(self, conds_obs, dev_1hot, times, thetas, clipped_thetas, condition_on_device):
         x_sample, _f_sample, dev_conditioned = self.ode_model.simulate(
-            clipped_thetas, self.constants, times, conds_obs, dev_1hot, self.solver, condition_on_device)
+            clipped_thetas, times, conds_obs, dev_1hot, self.solver, condition_on_device)
         # TODO: why just params here and not clipped params?
-        x_predict = self.ode_model.observe(x_sample, thetas, self.constants)
+        x_predict = self.ode_model.observe(x_sample, thetas)
         return x_sample, x_predict, dev_conditioned
 
 RNNDecoder = None  # import hack

@@ -14,7 +14,7 @@ import tensorflow as tf
 import procdata
 import encoders
 from decoders import ODEDecoder
-from distributions import ChainedDistribution, build_q_local, build_q_global, build_q_global_cond, build_p_local, build_p_global, build_p_global_cond
+import distributions as ds
 from vi import GeneralLogImportanceWeights
 from utils import default_get_value, variable_summaries
 
@@ -71,29 +71,32 @@ class Encoder:
         """Returns a ChainedDistribution"""
         p_vals = LocalAndGlobal(
             # prior: local: may have some dependencies in theta (in hierarchy, local, etc)
-            build_p_local(parameters, verbose, self.theta),
-            build_p_global_cond(parameters, verbose, self.theta),
+            ds.build_p_local(parameters, verbose, self.theta),
+            ds.build_p_global_cond(parameters, verbose, self.theta),
             # prior: global should be fully defined in parameters
-            build_p_global(parameters, verbose, self.theta))
+            ds.build_p_global(parameters, verbose, self.theta),
+            ds.build_p_constant(parameters, verbose, self.theta))
         if verbose:
             p_vals.diagnostic_printout('P')
         return p_vals.concat("p")
 
     @classmethod
     def set_up_q(self, verbose, parameters, placeholders, x_delta_obs):
+        # Constants
+        q_constant = ds.build_q_constant(parameters, verbose)
         # q: global, device-dependent distributions
-        q_global_cond = build_q_global_cond(parameters, placeholders.dev_1hot, placeholders.conds_obs, verbose, plot_histograms=parameters.params_dict["plot_histograms"])
+        q_global_cond = ds.build_q_global_cond(parameters, placeholders.dev_1hot, placeholders.conds_obs, verbose, plot_histograms=parameters.params_dict["plot_histograms"])
         # q: global, independent distributions
-        q_global = build_q_global(parameters, verbose)
+        q_global = ds.build_q_global(parameters, verbose)
         # q: local, based on amortized neural network
         if len(parameters.l.list_of_params) > 0:
             encode = encoders.ConditionalEncoder(parameters.params_dict)
             approx_posterior_params = encode(x_delta_obs)
-            q_local = build_q_local(parameters, approx_posterior_params, placeholders.dev_1hot, placeholders.conds_obs, verbose,
+            q_local = ds.build_q_local(parameters, approx_posterior_params, placeholders.dev_1hot, placeholders.conds_obs, verbose,
                         kernel_regularizer=tf.keras.regularizers.l2(0.01))
         else:
-            q_local = ChainedDistribution(name="q_local")
-        q_vals = LocalAndGlobal(q_local, q_global_cond, q_global)
+            q_local = ds.ChainedDistribution(name="q_local")
+        q_vals = LocalAndGlobal(q_local, q_global_cond, q_global, q_constant)
         if verbose:
             q_vals.diagnostic_printout('Q')
         return q_vals.concat("q")
@@ -118,22 +121,23 @@ class SessionVariables:
 
 
 class LocalAndGlobal:
-    """Convenience class to hold any triple of local, global-conditional and global values."""
+    """Convenience class to hold any tuple of local, global-conditional and global values."""
 
-    def __init__(self, loc, glob_cond, glob):
+    def __init__(self, loc, glob_cond, glob, const):
         self.loc = loc
         self.glob_cond = glob_cond
         self.glob = glob
+        self.const = const
 
     @classmethod
     def from_list(self, seq):
-        return LocalAndGlobal(seq[0], seq[1], seq[2])
+        return LocalAndGlobal(seq[0], seq[1], seq[2], seq[3])
 
     def to_list(self):
-        return [self.loc, self.glob_cond, self.glob]
+        return [self.loc, self.glob_cond, self.glob, self.const]
 
     def sum(self):
-        return self.loc + self.glob_cond + self.glob
+        return self.loc + self.glob_cond + self.glob + self.const
 
     def create_placeholders(self, suffix):
         def as_placeholder(size, name):
@@ -141,11 +145,12 @@ class LocalAndGlobal:
         return LocalAndGlobal(
             as_placeholder(self.loc, "local_" + suffix),
             as_placeholder(self.glob_cond, "global_cond_" + suffix),
-            as_placeholder(self.glob, "global_" + suffix))
+            as_placeholder(self.glob, "global_" + suffix),
+            as_placeholder(self.const, "const_" + suffix))
 
     def concat(self, name,):
         """Returns a concatenation of the items."""
-        concatenated = ChainedDistribution(name=name)
+        concatenated = ds.ChainedDistribution(name=name)
         for chained in self.to_list():
             for item_name, distribution in chained.distributions.items():
                 concatenated.add_distribution(item_name, distribution, chained.slot_dependencies[item_name])
@@ -155,12 +160,12 @@ class LocalAndGlobal:
         print('%s-LOCAL\n%s' % (prefix, self.loc))
         print('%s-GLOBAL-COND\n%s' % (prefix, self.glob_cond))
         print('%s-GLOBAL\n%s' % (prefix, self.glob))
+        print('%s-CONSTANT\n%s' % (prefix, self.const))
 
 class Objective:
     '''A convenience class to hold variables related to the objective function of the network.'''
     def __init__(self, encoder, decoder, model, placeholders):
-        self.log_p_observations = model.log_prob_observations(decoder.x_post_sample, placeholders.x_obs, encoder.theta,
-                                                              decoder.x_sample)
+        self.log_p_observations = model.log_prob_observations(decoder.x_post_sample, placeholders.x_obs, encoder.theta, decoder.x_sample)
         # let the model decide what precisions to use.
         # pylint:disable=fixme
         # TODO: will work for constant time precisions, but not for decayed. (get precisions after log_prob called)
@@ -192,10 +197,9 @@ class Placeholders:
         # PLACEHOLDERS: represent stuff we must supply to the computational graph at each iteration,
         # e.g. batch of data or random numbers
         #: None means we can dynamically set this number (nbr of batch, nbr of IW samples)
-        self.x_obs = tf.placeholder(dtype=tf.float32, shape=(None, (data_pair.n_time), (data_pair.n_species)),
-                                    name='species')
-        self.dev_1hot = tf.placeholder(dtype=tf.float32, shape=(None, (data_pair.depth)), name='device_1hot')
-        self.conds_obs = tf.placeholder(dtype=tf.float32, shape=(None, (data_pair.n_conditions)), name='conditions')
+        self.x_obs = tf.placeholder(dtype=tf.float32, shape=(None, data_pair.n_time, data_pair.n_species), name='species')
+        self.dev_1hot = tf.placeholder(dtype=tf.float32, shape=(None, data_pair.depth), name='device_1hot')
+        self.conds_obs = tf.placeholder(dtype=tf.float32, shape=(None, data_pair.n_conditions), name='conditions')
         # for beta VAE
         self.beta = tf.placeholder(dtype=tf.float32, shape=(None), name='beta')
         u_vals = n_vals.create_placeholders("random_bits")

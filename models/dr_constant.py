@@ -15,17 +15,14 @@ class DR_Constant(BaseModel):
         super(DR_Constant, self).init_with_params(params, relevance, default_devices)
         # do the other inits now
         self.use_aRFP = default_get_value(params, "use_aRFP", False)
-        self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F510', 'F430', 'LuxR', 'LasR']
+        self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR']
 
-    def get_list_of_constants(self, constants):
-        return [constants['init_x'],
-                constants['init_rfp'],
-                constants['init_yfp'],
-                constants['init_cfp'],
-                0.0,
-                0.0,
-                constants['init_luxR'],
-                constants['init_lasR']]
+    def initialize_state(self, theta):
+        n_batch = theta.get_n_batch()
+        n_iwae = theta.get_n_samples()
+        zero = tf.zeros([n_batch, n_iwae])
+        x0 = tf.stack([theta.init_x, theta.init_rfp, theta.init_yfp, theta.init_cfp, zero, zero, theta.init_luxR, theta.init_lasR], axis=2)
+        return x0
 
     def gen_reaction_equations(self, theta, treatments, dev_1hot, condition_on_device=True):
 
@@ -161,15 +158,13 @@ class DR_Constant_Precisions(DR_Constant):
         self.prec_constants = [self.init_prec for i in range(4)]
         self.n_hidden_precisions = params['n_hidden_decoder_precisions']
     
-    def get_list_of_constants(self, constants):
-        return [constants['init_x'],
-                constants['init_rfp'],
-                constants['init_yfp'],
-                constants['init_cfp'],
-                0.0,
-                0.0,
-                constants['init_luxR'],
-                constants['init_lasR']] + self.prec_constants
+    def initialize_state(self, theta):
+        n_batch = theta.get_n_batch()
+        n_iwae = theta.get_n_samples()
+        zero = tf.zeros([n_batch, n_iwae])
+        x0 = tf.stack([theta.init_x, theta.init_rfp, theta.init_yfp, theta.init_cfp, zero, zero, theta.init_luxR, theta.init_lasR], axis=2)
+        prec0 = tf.fill([n_batch, n_iwae, 4], self.init_prec)
+        return tf.concat([x0, prec0], axis=2)
 
     def expand_precisions_by_time( self, theta, x_predict, x_obs, x_sample ):
         var =  x_sample[:,:,:,-4:]
