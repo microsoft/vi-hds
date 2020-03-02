@@ -39,7 +39,6 @@ class Runner:
         self.procdata = None
         # Command-line arguments (Namespace)
         self.args = self._tidy_args(args, split)
-        self._fix_random_seed()
         # TODO(dacart): introduce a switch to allow non-GPU use, achieved with:
         # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
         # Utility methods for training a model
@@ -341,7 +340,6 @@ class Runner:
         train_writer = tf.summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'train_%s' % held_out_name))
         valid_writer = tf.summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'valid_%s' % held_out_name))
         eval_tensors = self._create_session_variables().as_list()
-        saver = tf.train.Saver()
         print("----------------------------------------------")
         print("Starting Session...")
         beta = 1.0
@@ -349,6 +347,7 @@ class Runner:
             self._fix_random_seed()  # <-- force run to be deterministic given random seed
             # initialize variables in the graph
             sess.run(tf.global_variables_initializer())
+            saver = tf.train.Saver()
             log_data = TrainingLogData()
             print("===========================")
             if self.args.heldout:
@@ -416,7 +415,7 @@ def create_parser(with_split: bool):
     parser.add_argument('--test_epoch', type=int, default=20, help='Frequency of calling test')
     parser.add_argument('--train_samples', type=int, default=200, help='Number of samples from q, per datapoint, during training')
     parser.add_argument('--test_samples', type=int, default=1000, help='Number of samples from q, per datapoint, during testing')
-    parser.add_argument('--dreg', action='store_true', default=True, help='Use DReG estimator')
+    parser.add_argument('--dreg', type=bool, default=True, help='Use DReG estimator')
     parser.add_argument('--verbose', action='store_true', default=False, help='Print more information about parameter setup')
     parser.add_argument('--no_figures', action='store_true', default=False, help='Don''t create figures during training/validation')
     if with_split:
