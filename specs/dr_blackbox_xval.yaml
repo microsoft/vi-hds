@@ -23,7 +23,7 @@ params:
   learning_boundaries: [250] #,500, 1000]
   learning_rates: [0.005,0.001] #, 0.0005, 0.0001]
 
-  constants: { init_x: 0.002, init_rfp: 0.00, init_yfp: 0.00, init_cfp: 0.00}
+  constant: { init_x: 0.002, init_rfp: 0.00, init_yfp: 0.00, init_cfp: 0.00}
   
   # SHARED PARAMETERS
   shared:

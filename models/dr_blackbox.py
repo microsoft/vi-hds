@@ -18,7 +18,6 @@ class DR_Blackbox( BaseModel ):
         self.n_hidden = params['n_hidden_decoder']
         self.n_latent_species = params['n_latent_species']        
         self.init_latent_species = default_get_value(params, 'init_latent_species', 0.001)
-        self.latent_species_constants = [self.init_latent_species for i in range( self.n_latent_species)]
 
     def get_list_of_constants(self, constants):
         return [ constants['init_x'], constants['init_rfp'],\
@@ -61,7 +60,7 @@ class DR_Blackbox( BaseModel ):
         
 
 
-    def observe( self, x_sample, theta, constants ):
+    def observe( self, x_sample, theta ):
         #x0 = [theta.x0, theta.rfp0, theta.yfp0, theta.cfp0]
         x_predict = [ x_sample[:,:,:,0], \
                 x_sample[:,:,:,0]*x_sample[:,:,:,1], \
@@ -109,13 +108,16 @@ class DR_BlackboxPrecisions( DR_Blackbox ):
     def init_with_params( self, params, relevance, default_devices ):
         super(DR_BlackboxPrecisions, self).init_with_params( params, relevance, default_devices )
         self.init_prec = params['init_prec']
-        self.prec_constants = [self.init_prec for i in range(4)]
 
-    def get_list_of_constants(self, constants):
-        return [ constants['init_x'], constants['init_rfp'],\
-                                      constants['init_yfp'],\
-                                      constants['init_cfp'] ] + self.latent_species_constants + self.prec_constants
-    
+    def initialize_state(self, theta):
+        n_batch = theta.get_n_batch()
+        n_iwae = theta.get_n_samples()
+        zero = tf.zeros([n_batch, n_iwae])
+        x0 = tf.stack([theta.init_x, theta.init_rfp, theta.init_yfp, theta.init_cfp], axis=2)
+        h0 = tf.fill([n_batch, n_iwae, self.n_latent_species], self.init_latent_species)
+        prec0 = tf.fill([n_batch, n_iwae, 4], self.init_prec)
+        return tf.concat([x0, h0, prec0], axis=2)
+
     def expand_precisions_by_time( self, theta, x_predict, x_obs, x_sample ):
         var =  x_sample[:,:,:,-4:]
         prec = 1.0 / var
@@ -166,6 +168,130 @@ class DR_BlackboxPrecisions( DR_Blackbox ):
             vars_deg = Sequential([vars_inp, vars_deg_layer])(ZZ_vrs)            
             vrs    = vars_act - vars_deg*reshaped_var_state
             
+            return tf.reshape( tf.concat( [states,vrs],1),  [n_batch, n_iwae, n_states] )
+        
+        # Return equations and an empty dict, which can otherwise be populated with conditioned parameter values for TB visualization
+        return reaction_equations, {}
+
+class DR_HierarchicalBlackbox( DR_BlackboxPrecisions ):
+    
+    def init_with_params( self, params, relevance, default_devices ):
+        super(DR_HierarchicalBlackbox, self).init_with_params( params, relevance, default_devices )
+        # do the other inits now
+        self.n_x = params['n_x']
+        self.n_y = params['n_y']
+        self.n_z = params['n_z']
+        self.n_latent_species = params['n_latent_species']
+        self.n_hidden_species = params['n_hidden_decoder']
+        self.n_hidden_precisions = params['n_hidden_decoder_precisions']
+        self.init_latent_species = default_get_value(params, 'init_latent_species', 0.001)
+        self.init_prec = default_get_value(params, 'init_prec', 0.00001)
+        
+    def device_conditioner( self, param, param_name, dev_1hot, use_bias=False, activation=None ):  # TODO: try e.g. activation=tf.nn.relu
+        """Returns a 1D parameter conditioned on device
+        ::NOTE:: condition_on_device is a closure over n_iwae, n_batch, dev_1hot_rep"""
+        n_iwae = tf.shape( param )[1]  
+        n_batch = tf.shape( param )[0]
+        # tile devices, one per iwae sample
+        dev_1hot_rep = tf.tile( dev_1hot, [n_iwae, 1] )
+        param_flat = tf.reshape( param, [n_iwae*n_batch, 1] )
+        #param_cond_inp = dev_1hot_rep #tf.concat( [param_flat, dev_1hot_rep], axis=1 )
+        param_cond = tf.layers.dense( dev_1hot_rep, units = 1, use_bias = use_bias,
+                        activation=activation,
+                        #kernel_initializer=tf.initializers.orthogonal(gain=1.0), 
+                        name = '%s_%s'%(param_name, 'decoder'))
+                
+        return tf.reshape( param_flat*tf.exp(param_cond), [n_batch, n_iwae] )
+
+    def gen_reaction_equations( self, theta, treatments, dev_1hot, condition_on_device=True ):
+        n_iwae = tf.shape( theta.z1 )[1]  
+        n_batch = tf.shape( theta.z1 )[0]
+        devices = tf.tile( dev_1hot, [n_iwae, 1] )
+
+        treatments_rep = tf.tile( treatments, [n_iwae,1])
+
+        # locals
+        Z = []
+        if self.n_z > 0:
+            for i in range(1,self.n_z+1):
+                Z.append( getattr(theta,"z%d"%i))
+            Z = tf.stack( Z, axis=2 )
+
+        # global conditionals
+        Y = []
+        if self.n_y > 0:
+            for i in range(1,self.n_y+1):
+                nm = "y%d"%i
+                #Y.append( self.device_conditioner( getattr(theta, nm ), nm, dev_1hot )
+                Y.append( getattr(theta, nm ) )
+            Y = tf.stack( Y, axis=2 )
+            Y_reshaped = tf.reshape( Y, [n_batch*n_iwae, self.n_y])
+            offset_layer = Dense(self.n_y, activation=None, name="device_offsets")
+            Y_reshaped = Y_reshaped + offset_layer( devices )
+            Y = tf.reshape( Y_reshaped, [n_batch, n_iwae, self.n_y] )
+
+        # globals
+        X = []
+        if self.n_x > 0:
+            for i in range(1,self.n_x+1):
+                X.append( getattr(theta,"x%d"%i))
+            X = tf.stack( X, axis=2 )
+
+        if self.n_z > 0 and self.n_y == 0 and self.n_x == 0:
+            print("Black Box case: LOCALS only")
+            latents = Z
+        elif  self.n_z == 0 and self.n_y > 0 and self.n_x == 0:   
+            print("Black Box case: GLOBAL CONDITIONS only")
+            latents = Y
+        elif  self.n_z == 0 and self.n_y == 0 and self.n_x > 0: 
+            print("Black Box case: GLOBALS only")  
+            latents = X
+        elif self.n_z > 0 and self.n_y > 0 and self.n_x == 0:
+            print("Black Box case: LOCALS and GLOBAL CONDITIONS only")  
+            latents = tf.concat( [Y,Z], axis=-1 )
+        elif self.n_z > 0 and self.n_y == 0 and self.n_x > 0:
+            print("Black Box case: LOCALS and GLOBALS only")  
+            latents = tf.concat( [X,Z], axis=-1 )
+        elif self.n_z == 0 and self.n_y > 0 and self.n_x > 0:
+            print("Black Box case: GLOBALS and GLOBAL CONDITIONS only")  
+            latents = tf.concat( [X,Y], axis=-1 )
+        elif self.n_z > 0 and self.n_y > 0 and self.n_x > 0:
+            print("Black Box case: LOCALS & GLOBALS & GLOBAL CONDITIONS") 
+            latents = tf.concat( [X,Y,Z], axis=-1 )
+        else:
+            raise Exception("must assign latents")
+
+        def reaction_equations( state, t ):
+            n_states  = state.shape[-1].value
+            n_latents = latents.shape[-1].value
+            all_reshaped_state = tf.reshape( state, [n_batch*n_iwae, n_states])
+
+            # split for precisions and states
+            reshaped_state = all_reshaped_state[:,:-4]
+            reshaped_var_state = all_reshaped_state[:,-4:]
+
+            ZZ_states = tf.concat( [ reshaped_state, \
+                        tf.reshape( latents, [n_batch*n_iwae, n_latents]), \
+                        treatments_rep,\
+                        devices], axis=1 )
+            states_inp = Dense(self.n_hidden_species, activation = tf.nn.relu, name="bb_hidden")   #activation = tf.nn.tanh
+            states_act_layer = Dense(4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_df_act")
+            states_deg_layer = Dense(4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_df_deg")
+            states_act = Sequential([states_inp, states_act_layer])(ZZ_states)
+            states_deg = Sequential([states_inp, states_deg_layer])(ZZ_states)            
+            states    = states_act - states_deg*reshaped_state
+
+            ZZ_vrs = tf.concat( [ all_reshaped_state, \
+                        tf.reshape( latents, [n_batch*n_iwae, n_latents]), \
+                        treatments_rep,\
+                        devices], axis=1 )            
+            vars_inp = Dense(self.n_hidden_precisions, activation = tf.nn.relu, name="bb_hidden_vrs")   #activation = tf.nn.tanh
+            vars_act_layer = Dense(4, activation = tf.nn.sigmoid, name="bb_df_act_vrs")
+            vars_deg_layer = Dense(4, activation = tf.nn.sigmoid, name="bb_df_deg_vrs")
+            vars_act = Sequential([vars_inp, vars_act_layer])(ZZ_vrs)
+            vars_deg = Sequential([vars_inp, vars_deg_layer])(ZZ_vrs)            
+            vrs    = vars_act - vars_deg*reshaped_var_state
+
             return tf.reshape( tf.concat( [states,vrs],1),  [n_batch, n_iwae, n_states] )
         
         # Return equations and an empty dict, which can otherwise be populated with conditioned parameter values for TB visualization
