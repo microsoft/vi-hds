@@ -42,6 +42,10 @@ for k, v in priors.items():
             sample_value = shared[v['distribution']]
         theta.add(k, np.tile(sample_value, [1,1]).astype(np.float32))
 
+# Add the constants separately
+for k, v in params['constant'].items():
+    theta.add(k, np.tile(v, [1,1]).astype(np.float32))
+
 # Set up model runner
 trainer = utils.Trainer(args, args.yaml, add_timestamp=True)
 self = Runner(args, 0, trainer)
@@ -54,12 +58,11 @@ model = self.params_dict["model"]
 model.init_with_params(self.params_dict, self.procdata.relevance_vectors, self.procdata.default_devices)
 
 # Define simulation variables and run simulator
-constants = { 'init_x': 0.002, 'init_rfp': 0.0, 'init_cfp': 0.0, 'init_yfp': 0.0, 'init_luxR': 0.0, 'init_lasR': 0.0 }
 times = np.linspace(0.0, 20.0, 101).astype(np.float32)
 conditions = np.array([[1.0, 1.0]]).astype(np.float32)
 dev_1hot = np.expand_dims(np.zeros(7).astype(np.float32),0)
-sol_rk4 = model.simulate(theta, constants, times, conditions, dev_1hot, 'rk4')[0]
-sol_mod = model.simulate(theta, constants, times, conditions, dev_1hot, 'modeulerwhile')[0]
+sol_rk4 = model.simulate(theta, times, conditions, dev_1hot, 'rk4')[0]
+sol_mod = model.simulate(theta, times, conditions, dev_1hot, 'modeulerwhile')[0]
 
 # Run TF session to extract an ODE simulation using modified Euler and RK4
 sess = tf.Session()

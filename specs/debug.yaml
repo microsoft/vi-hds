@@ -1,0 +1,36 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under a Microsoft Research License.
+
+data:
+  devices: ['Pcat_Y81C76']
+  pretty_devices: ['Pcat-Pcat']
+  groups:
+    aR: [0]
+  default_devices:
+    aR: 0
+  files: ['proc140916.csv','proc140930.csv','proc141006.csv','proc141021.csv','proc141023.csv','proc141028.csv']
+  signals: ["OD", "mRFP1", "EYFP", "ECFP"]
+  conditions: ["C6","C12"]
+  
+params:
+  model: !!python/object:models.base_model.Debug_Constant {}
+
+  constant:
+    init_x: 0.002
+
+  shared:
+    data_precision_lognormal:   { distribution: LogNormal, mu: 8.0,  sigma: 2.0 }
+    
+  global_conditioned:
+    conditioning: { devices: true, treatments: false }
+    
+  global:
+    prec_x:   { distribution: data_precision_lognormal}
+    prec_rfp: { distribution: data_precision_lognormal}
+    prec_yfp: { distribution: data_precision_lognormal}
+    prec_cfp: { distribution: data_precision_lognormal}
+    
+  # LOCAL PARAMETERS:
+  local:
+    conditioning: { devices: true, treatments: False }
+    r:    {distribution: LogNormal, mu: 0.0,   sigma: 0.25}

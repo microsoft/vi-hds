@@ -10,7 +10,7 @@ data:
   files: ['proc140916.csv','proc140930.csv','proc141006.csv','proc141021.csv','proc141023.csv','proc141028.csv']
   signals: ["OD", "mRFP1", "EYFP", "ECFP"]
   conditions: ["C6","C12"]
-  plotSeparatedConditions: true
+  separate_conditions: true
 
 params:
   model: !!python/object:models.dr_blackbox.DR_BlackboxPrecisions {}
@@ -23,7 +23,7 @@ params:
   learning_boundaries: [250] #,500, 1000]
   learning_rates: [0.005,0.001] #, 0.0005, 0.0001]
 
-  constants: { init_x: 0.002, init_rfp: 0.00, init_yfp: 0.00, init_cfp: 0.00}
+  constant: { init_x: 0.002, init_rfp: 0.00, init_yfp: 0.00, init_cfp: 0.00}
   
   # SHARED PARAMETERS
   shared:

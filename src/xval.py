@@ -6,14 +6,14 @@ import numpy as np
 import tensorflow as tf
 import procdata
 import plotting
-from utils import make_summary_image_op
+from utils import make_summary_image_op, Trainer
 import matplotlib.pyplot as pp # pylint:disable=wrong-import-order
 
 class XvalMerge(object):
 
-    def __init__(self, args, data_settings, trainer):
-        data = procdata.apply_defaults(data_settings)
-        self.separated_inputs = data["separate_conditions"]
+    def __init__(self, args, data_settings):
+        
+        self.separated_inputs = data_settings["separate_conditions"]
         self.device_names = data_settings["devices"]
         self.conditions = data_settings["conditions"]
         self.elbo = []
@@ -33,7 +33,7 @@ class XvalMerge(object):
         self.data_ids = []
         self.devices = []
         self.treatments = []
-        self.trainer = trainer
+        self.trainer = trainer = Trainer(args, add_timestamp=True)
         self.X_obs = []
         # Attributes initialized elsewhere
         self.chunk_sizes = None
@@ -94,9 +94,8 @@ class XvalMerge(object):
         self.log_ws = self.log_normalized_iws[:, :, None, None]
         self.importance_weights = np.exp(np.squeeze(self.log_ws))
 
-    def save(self, location=None):
-        if location is None:
-            location = self.trainer.savedir
+    def save(self):
+        location = self.trainer.tb_log_dir
         def save(base, data):
             np.save(os.path.join(location, base), data)
         def savetxt(base, data):

@@ -10,10 +10,10 @@ data:
   files: ['proc140916.csv','proc140930.csv','proc141006.csv','proc141021.csv','proc141023.csv','proc141028.csv']
   signals: ["OD", "mRFP1", "EYFP", "ECFP"]
   conditions: ["C6","C12"]
-  plotSeparatedConditions: true
+  separate_conditions: true
 
 params:
-  model: !!python/object:models.dr_blackbox_hierarchical.DR_HierarchicalBlackbox {}
+  model: !!python/object:models.dr_blackbox.DR_HierarchicalBlackbox {}
   #theta_columns: ['x1','y1','z1','z2','z3'] #,'z6','z7','z8','z9','z10']
   theta_columns: ['x1','x2','y1','y2','z1','z2'] #,'z6','z7','z8','z9','z10']
 
@@ -21,14 +21,14 @@ params:
   n_y: 2
   n_x: 5
   n_latent_species: 2
-  n_hidden_decoder_species: 25
+  n_hidden_decoder: 25
   n_hidden_decoder_precisions: 20
   lambda_l2: 0.1
   lambda_l2_hidden: 0.1
   learning_boundaries: [250] #,500, 1000]
   learning_rates: [0.005,0.001] #, 0.0005, 0.0001]
 
-  constants: { init_x: 0.002, init_rfp: 0.00, init_yfp: 0.00, init_cfp: 0.00}
+  constant: { init_x: 0.002, init_rfp: 0.00, init_yfp: 0.00, init_cfp: 0.00}
   # ============================================================= #
   # SHARED PARAMETERS
   # ============================================================= #
