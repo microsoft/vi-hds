@@ -10,7 +10,7 @@ data:
   files: ['proc140916.csv','proc140930.csv','proc141006.csv','proc141021.csv','proc141023.csv','proc141028.csv']
   signals: ["OD", "mRFP1", "EYFP", "ECFP"]
   conditions: ["C6","C12"]
-  plotSeparatedConditions: true
+  separated_conditions: true
 
 params:
   model: !!python/object:models.dr_growthrate.DR_Growth {}
