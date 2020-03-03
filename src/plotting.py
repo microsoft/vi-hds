@@ -477,9 +477,10 @@ def xval_variable_parameters(res, ncols=2):
     
     ps = []
     for i,p in enumerate(all_ps):
-        if np.shape(qs[p + '.mu'])[0] == ndata:
-            ps.append(p)
-    print(ps)
+        if p+'mu' in qs:
+            if np.shape(qs[p + '.mu'])[0] == ndata:
+                ps.append(p)
+    #print(ps)
     
     if utils.is_empty(ps):
         print("- No variables parameters: not producing plot")
@@ -528,8 +529,9 @@ def xval_global_parameters(res, ncols=6):
     all_ps = [[n.split('.')[0] for n in res.q_names][index] for index in sorted(indexes)]    
     ps = []
     for i,p in enumerate(all_ps):
-        if np.shape(qs[p + '.mu'])[0] < ndata:
-            ps.append(p)
+        if p+'mu' in qs:
+            if np.shape(qs[p + '.mu'])[0] < ndata:
+                ps.append(p)
     
     if utils.is_empty(ps):
         print("- No global parameters: not producing plot")
