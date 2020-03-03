@@ -191,23 +191,21 @@ class ProcData:
     it, either by subclassing or by handing over parameters to the constructor.
     '''
     def __init__(self, data_settings):
-        # Apply defaults 
-        data = apply_defaults(data_settings)
         # Measurable output signals: optical density and three fluorescent proteins.
-        self.signals = data["signals"]
+        self.signals = data_settings["signals"]
         # The different devices we work with
-        self.device_names = data["devices"]
-        self.pretty_devices = data["pretty_devices"]
-        if "default_devices" in data:
-            self.default_devices = data["default_devices"]
+        self.device_names = data_settings["devices"]
+        self.pretty_devices = data_settings["pretty_devices"]
+        if "default_devices" in data_settings:
+            self.default_devices = data_settings["default_devices"]
         else:
             self.default_devices = dict()
         # Conditions (inputs)
-        self.conditions = data["conditions"]
+        self.conditions = data_settings["conditions"]
         # Files to be loaded
-        self.files = data["files"]
+        self.files = data_settings["files"]
         # Group-level parameter assignments for each device
-        groups_list = [ [k,v] for k, v in data["groups"].items()]
+        groups_list = [ [k,v] for k, v in data_settings["groups"].items()]
         self.component_maps = OrderedDict()
         for k, group in groups_list:
             self.component_maps[k] = OrderedDict(zip(self.device_names, group)) 
@@ -232,9 +230,9 @@ class ProcData:
         # Map from device indices (as floats) to device names
         self.device_lookup = {v: k for k, v in self.device_map.items()}
         # Normalisation constants
-        self.normalize = data["normalize"]
+        self.normalize = data_settings["normalize"]
         # Background subtraction
-        self.subtract_background = data["subtract_background"]
+        self.subtract_background = data_settings["subtract_background"]
         
     def load_all(self, data_dir) -> Dict[str, Any]:
         '''

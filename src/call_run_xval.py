@@ -8,25 +8,25 @@ import procdata
 import numpy as np
 from src.run_xval import run_on_split, create_parser
 from src.xval import XvalMerge
-from src.utils import Trainer, load_config_file
+import src.utils as utils
 
 def main():
     parser = create_parser(False)
     args = parser.parse_args()
-    spec = load_config_file(args.yaml)  # spec is a dict of dicts of dicts
-    data_settings = spec["data"]
-    trainer = Trainer(args, args.yaml, add_timestamp=True)
+    spec = utils.load_config_file(args.yaml)  # spec is a dict of dicts of dicts
+    data_settings = procdata.apply_defaults(spec["data"])
+    para_settings = utils.apply_defaults(spec["params"])
     data = procdata.ProcData(data_settings)
     
-    xval_merge = XvalMerge(args, data_settings, trainer)
+    xval_merge = XvalMerge(args, data_settings)
     for split_idx in range(1, args.folds + 1):
         print("---------------------------------------------------------------------------")
         print("    FOLD %d of %d"%(split_idx, args.folds))
         print("---------------------------------------------------------------------------")
-        data_pair, val_results = run_on_split(args, split_idx, xval_merge.trainer)
+        data_pair, val_results = run_on_split(args, data_settings, para_settings, split_idx, xval_merge.trainer)
         xval_merge.add(split_idx, data_pair, val_results)
     xval_merge.finalize()
-    xval_merge.save(xval_merge.trainer.tb_log_dir)
+    xval_merge.save()
     if args.no_figures is False:
         xval_merge.make_writer(xval_merge.trainer.tb_log_dir)
         xval_merge.prepare_treatment()

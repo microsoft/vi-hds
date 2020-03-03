@@ -24,7 +24,7 @@ from parameters import Parameters
 from plotting import plot_prediction_summary, xval_treatments, plot_weighted_theta
 from convenience import Decoder, Encoder, SessionVariables, LocalAndGlobal, Objective, Placeholders, TrainingLogData, TrainingStepper
 from xval import XvalMerge
-from utils import load_config_file, make_summary_image_op, variable_summaries, Trainer, get_data_directory, apply_defaults
+import utils
 
 class Runner:
     """A class to set up, train and evaluate a variation CRN model, holding out one fold 
@@ -121,7 +121,7 @@ class Runner:
         Sets self.dataset_pair to hold the training and evaluation datasets.'''
         # "Make a usable dataset (notions of repeats and conditions)"
         # Establish where the csv files in data['files'] are to be found.
-        data_dir = get_data_directory()
+        data_dir = utils.get_data_directory()
         # Map data arguments into internal structures
         #self.conditions = data_settings["conditions"]
         # Load all the data in all the files, merging appropriately (see procdata for details).
@@ -158,11 +158,8 @@ class Runner:
         self.train_feed_dict = self.dataset_pair.train.create_feed_dict(ph, self._random_noise(self.dataset_pair.n_train))
         self.val_feed_dict = self.dataset_pair.val.create_feed_dict(ph, self._random_noise(self.dataset_pair.n_val))
 
-    def set_up(self):
-        spec = load_config_file(self.args.yaml)  # spec is a dict of dicts of dicts
-
-        # Import the correct model
-        self.params_dict = apply_defaults(spec["params"])
+    def set_up(self, data_settings, params):    
+        self.params_dict = params
 
         # time some things, like epoch time
         start_time = time.time()
@@ -172,7 +169,7 @@ class Runner:
         # ---------------------------------------- #
 
         # Create self.dataset_pair: DatasetPair containing train and val Datasets.
-        self._prepare_data(spec["data"])
+        self._prepare_data(data_settings)
         # Number of instances to put in a training batch.
         self.n_batch = min(self.params_dict['n_batch'], self.dataset_pair.n_train)
 
@@ -226,8 +223,8 @@ class Runner:
         unnormed_iw = self.objective.log_unnormalized_iws[ts_to_vis, :]
         self_normed_iw = self.objective.normalized_iws[ts_to_vis, :]   # not in log space
         with tf.name_scope('IWS'):
-            variable_summaries(unnormed_iw, 'iws_unn_log', plot_histograms)
-            variable_summaries(self_normed_iw, 'iws_normed', plot_histograms)
+            utils.variable_summaries(unnormed_iw, 'iws_unn_log', plot_histograms)
+            utils.variable_summaries(self_normed_iw, 'iws_normed', plot_histograms)
             tf.summary.scalar('nonzeros', tf.count_nonzero(self_normed_iw))
 
         #print(tf.shape(log_p_observations))
@@ -255,7 +252,7 @@ class Runner:
         fig = plot_prediction_summary(self.procdata, self.decoder.names, self.dataset_pair.times, dataset.X,
                                                output.x_post_sample, output.precisions, dataset.devices, output.log_normalized_iws,
                                                '-')
-        plot_op = make_summary_image_op(fig, 'Summary', 'Summary')
+        plot_op = utils.make_summary_image_op(fig, 'Summary', 'Summary')
         writer.add_summary(tf.Summary(value=[plot_op]), epoch)
         pp.close(fig)
 
@@ -265,7 +262,7 @@ class Runner:
                                         training_output.theta_tensors, self.dataset_pair.train.devices,
                                         validation_output.normalized_iws, validation_output.theta_tensors, self.dataset_pair.val.devices,
                                         columns2use=self.params_dict['theta_columns'], sample=sample)
-        theta_plot_op = make_summary_image_op(theta_fig, name, 'Theta')
+        theta_plot_op = utils.make_summary_image_op(theta_fig, name, 'Theta')
         valid_writer.add_summary(tf.Summary(value=[theta_plot_op]), epoch)
         pp.close(theta_fig)
         pp.close('all')
@@ -275,7 +272,7 @@ class Runner:
     #     pretty_devices = ['Pcat-Pcat','RS100-S32','RS100-S34','R33-S32','R33-S34','R33-S175']
     #     treatment_fig = xval_treatments(self.procdata, dataset.X, output.x_post_sample, output.precisions, output.log_normalized_iws, 
     #         dataset.devices, dataset.treatments, devices, pretty_devices)
-    #     treatment_plot_op = make_summary_image_op(treatment_fig, 'Treatment')
+    #     treatment_plot_op = utils.make_summary_image_op(treatment_fig, 'Treatment')
     #     writer.add_summary(treatment_plot_op, epoch)
     #     pp.close(treatment_fig)
 
@@ -428,21 +425,22 @@ def create_parser(with_split: bool):
     parser.add_argument('--folds', type=int, default=4, help='Cross-validation folds')
     return parser
 
-def run_on_split(args, split=None, trainer=None):
+def run_on_split(args, data_settings, para_settings, split=None, trainer=None):
     runner = Runner(args, split, trainer)
-    runner.set_up()
+    runner.set_up(data_settings, para_settings)
     return runner.run()
 
 def main():
     parser = create_parser(True)
     args = parser.parse_args()
-    spec = load_config_file(args.yaml)  # spec is a dict of dicts of dicts
-    trainer = Trainer(args, args.yaml, add_timestamp=True)
-    xval_merge = XvalMerge(args, spec["data"], trainer)
-    data_pair, val_results = run_on_split(args, split=None, trainer=trainer)
+    spec = utils.load_config_file(args.yaml)  # spec is a dict of dicts of dicts
+    data_settings = procdata.apply_defaults(spec["data"])
+    para_settings = utils.apply_defaults(spec["params"])
+    xval_merge = XvalMerge(args, data_settings)
+    data_pair, val_results = run_on_split(args, data_settings, para_settings, split=None, trainer=xval_merge.trainer)
     xval_merge.add(1, data_pair, val_results)
     xval_merge.finalize()
-    xval_merge.save(xval_merge.trainer.tb_log_dir)
+    xval_merge.save()
 
     #xval_merge.make_writer(xval_merge.trainer.tb_log_dir)
     #xval_merge.prepare_treatment()

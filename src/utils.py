@@ -103,10 +103,10 @@ def apply_defaults(spec):
 
 class Trainer(object):
     """Collection functions and attributes for training a Model"""
-    def __init__(self, args, yaml_file_name, add_timestamp=False):
+    def __init__(self, args, add_timestamp=False):
         self.results_dir = get_results_directory()
         self.experiment = args.experiment
-        self.yaml_file_name = yaml_file_name
+        self.yaml_file_name = args.yaml
         self.create_logging_dirs(add_timestamp)
 
     def _unique_dir_name(self, experiment, add_timestamp):
