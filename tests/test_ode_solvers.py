@@ -23,7 +23,7 @@ from run_xval import Runner, create_parser
 parser = create_parser(False)
 args = parser.parse_args(['./specs/dr_constant_icml.yaml'])
 spec = utils.load_config_file(args.yaml)  # spec is a dict of dicts of dicts
-para_settings = utils.apply_defaults(spec['params'])
+para_settings = utils.apply_defaults(spec['params'], args)
 data_settings = procdata.apply_defaults(spec["data"])
 model = para_settings['model']
 
