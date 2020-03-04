@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under a Microsoft Research License.
 
-from models.base_model import BaseModel, log_prob_gaussian
+from models.base_model import BaseModel, log_prob_gaussian, NeuralPrecisions
 from src.utils import default_get_value
 from tensorflow.keras.layers import Dense
 from tensorflow.keras import Sequential
@@ -225,6 +225,9 @@ class DR_Constant_Precisions(DR_Constant):
             aR = theta.aR
             aS = theta.aS
 
+        # Define neural precisions
+        neural_precisions = NeuralPrecisions(self.nspecies, self.n_hidden_precisions)
+
         def reaction_equations(state, t):
             
             n_states  = tf.shape(state)[2]
@@ -261,19 +264,7 @@ class DR_Constant_Precisions(DR_Constant):
             d_lasR = rc * aS - (gamma + dS) * lasR
 
             states = tf.stack([d_x, d_rfp, d_yfp, d_cfp, d_f510, d_f430, d_luxR, d_lasR], axis=2)
-
-            # Black-box variances
-            reshaped_state = tf.reshape(state[:,:,:-4], [n_batch*n_iwae, n_states-4])
-            reshaped_var_state = tf.reshape(state[:,:,-4:], [n_batch*n_iwae, 4])
-            t_expanded = tf.tile( [[t]], [n_batch*n_iwae, 1] )
-            ZZ_vrs = tf.concat( [ t_expanded, reshaped_state ], axis=1 )
-
-            inp = Dense(self.n_hidden_precisions, activation = tf.nn.tanh, use_bias=True, name="vars_hidden", input_shape=(9,))
-            act_layer = Dense(4, activation = tf.nn.sigmoid, name="vars_act")
-            deg_layer = Dense(4, activation = tf.nn.sigmoid, name="vars_deg")
-            act = Sequential([inp, act_layer])(ZZ_vrs)
-            deg = Sequential([inp, deg_layer])(ZZ_vrs)            
-            vrs    = tf.reshape(act - deg*reshaped_var_state, [n_batch, n_iwae, 4])
+            vrs = neural_precisions(t, state, n_batch, n_iwae)
 
             return tf.concat([states,vrs], 2)
 

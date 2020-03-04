@@ -42,7 +42,7 @@ class Runner:
         # TODO(dacart): introduce a switch to allow non-GPU use, achieved with:
         # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
         # Utility methods for training a model
-        self.trainer = trainer or Trainer(args, args.yaml, add_timestamp=True)
+        self.trainer = trainer or utils.Trainer(args, args.yaml, add_timestamp=True)
         # Attributes set in other methods:
         # Conditions, input signals of the data that are being modelled
         self.conditions = None
