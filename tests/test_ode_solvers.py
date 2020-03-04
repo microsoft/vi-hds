@@ -10,11 +10,12 @@ import tempfile
 import re
 
 # Call tests in this file by running "pytest" on the directory containing it. For example:
-#   cd ~/Inference
+#   cd ~/vi-hds
 #   pytest tests
 
 import models.dr_constant
 import utils
+import procdata
 import distributions
 from run_xval import Runner, create_parser
 
@@ -22,15 +23,16 @@ from run_xval import Runner, create_parser
 parser = create_parser(False)
 args = parser.parse_args(['./specs/dr_constant_icml.yaml'])
 spec = utils.load_config_file(args.yaml)  # spec is a dict of dicts of dicts
-params = spec['params']
-model = params['model']
+para_settings = utils.apply_defaults(spec['params'])
+data_settings = procdata.apply_defaults(spec["data"])
+model = para_settings['model']
 
 # Load the parameter priors
-shared = dict([(k, np.exp(v['mu'])) for k, v in params['shared'].items()])
+shared = dict([(k, np.exp(v['mu'])) for k, v in para_settings['shared'].items()])
 priors = dict()
-priors.update(params['global'])
-priors.update(params['global_conditioned'])
-priors.update(params['local'])
+priors.update(para_settings['global'])
+priors.update(para_settings['global_conditioned'])
+priors.update(para_settings['local'])
 
 # Define a parameter sample that is the mode of each LogNormal prior
 theta = distributions.DotOperatorSamples()
@@ -43,14 +45,14 @@ for k, v in priors.items():
         theta.add(k, np.tile(sample_value, [1,1]).astype(np.float32))
 
 # Add the constants separately
-for k, v in params['constant'].items():
+for k, v in para_settings['constant'].items():
     theta.add(k, np.tile(v, [1,1]).astype(np.float32))
 
 # Set up model runner
-trainer = utils.Trainer(args, args.yaml, add_timestamp=True)
+trainer = utils.Trainer(args, add_timestamp=True)
 self = Runner(args, 0, trainer)
-self.params_dict = utils.apply_defaults(spec["params"])
-self._prepare_data(spec["data"])
+self.params_dict = para_settings
+self._prepare_data(data_settings)
 self.n_batch = min(self.params_dict['n_batch'], self.dataset_pair.n_train)
 
 # Set various attributes of the model

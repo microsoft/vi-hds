@@ -13,6 +13,7 @@ class DR_Blackbox( BaseModel ):
     
     def init_with_params( self, params, relevance, default_devices ):
         super(DR_Blackbox, self).init_with_params( params, relevance, default_devices )
+        self.species = ['OD', 'RFP', 'YFP', 'CFP']
         # do the other inits now
         self.n_z = params['n_z']
         self.n_hidden = params['n_hidden_decoder']
