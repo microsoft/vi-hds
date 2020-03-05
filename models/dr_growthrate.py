@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under a Microsoft Research License.
 
-from src.utils import default_get_value
+from src.utils import default_get_value, variable_summaries
 from models.dr_constant import DR_Constant
 import tensorflow as tf
 import numpy as np
@@ -9,7 +9,7 @@ import numpy as np
 class DR_Growth( DR_Constant ):
     
     def gen_reaction_equations( self, theta, treatments, dev_1hot, condition_on_device=True ):
-        n_iwae = tf.shape( theta.aR )[1]  
+        n_iwae = theta.get_n_samples()
         treatments_transformed = tf.clip_by_value(tf.exp(treatments) - 1.0, 0.0, 1e6)
         c12a, c6a = tf.unstack(treatments_transformed, axis=1)
         c12 = tf.tile( tf.expand_dims(c12a,axis=1), [1,n_iwae] )
@@ -49,8 +49,12 @@ class DR_Growth( DR_Constant ):
         # condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
         # currently, f is a one-layer MLP with NO activation function (e.g., offset and scale only) 
         if condition_on_device:
-            aR = self.device_conditioner( theta.aR, 'aR', dev_1hot )
-            aS = self.device_conditioner( theta.aS, 'aS', dev_1hot )
+            kinit = tf.keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
+            ones = tf.tile([[1.0]], tf.shape(theta.r))
+            aR = self.device_conditioner(ones, 'aR', dev_1hot, kernel_initializer=kinit)
+            aS = self.device_conditioner(ones, 'aS', dev_1hot, kernel_initializer=kinit)
+            variable_summaries(aR, 'aR.conditioned')
+            variable_summaries(aS, 'aS.conditioned')
         else:
             aR = theta.aR
             aS = theta.aS
@@ -93,7 +97,7 @@ class DR_Growth( DR_Constant ):
 
             X = tf.stack([d_x,d_rfp,d_yfp,d_cfp,d_f510,d_f430,d_luxR,d_lasR], axis=2)
             return X
-        return reaction_equations, {'aR':aR, 'aS':aS}
+        return reaction_equations
 
 class DR_GrowthStudentT( DR_Growth ):
     

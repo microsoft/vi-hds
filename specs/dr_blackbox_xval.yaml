@@ -18,6 +18,7 @@ params:
   n_z: 5
   n_latent_species: 2
   n_hidden_decoder: 50
+  n_hidden_decoder_precisions: 25
   lambda_l2: 0.1
   lambda_l2_hidden: 0.1
   learning_boundaries: [250] #,500, 1000]

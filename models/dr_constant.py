@@ -2,7 +2,7 @@
 # Licensed under a Microsoft Research License.
 
 from models.base_model import BaseModel, log_prob_gaussian, NeuralPrecisions
-from src.utils import default_get_value
+from src.utils import default_get_value, variable_summaries
 from tensorflow.keras.layers import Dense
 from tensorflow.keras import Sequential
 import tensorflow as tf
@@ -11,8 +11,8 @@ import pdb
 
 class DR_Constant(BaseModel):
 
-    def init_with_params(self, params, relevance, default_devices):
-        super(DR_Constant, self).init_with_params(params, relevance, default_devices)
+    def init_with_params(self, params, procdata):
+        super(DR_Constant, self).init_with_params(params, procdata)
         # do the other inits now
         self.use_aRFP = default_get_value(params, "use_aRFP", False)
         self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR']
@@ -72,6 +72,8 @@ class DR_Constant(BaseModel):
             ones = tf.tile([[1.0]],tf.shape(theta.r))
             aR = self.device_conditioner(ones, 'aR', dev_1hot, kernel_initializer=kinit)
             aS = self.device_conditioner(ones, 'aS', dev_1hot, kernel_initializer=kinit)
+            variable_summaries(aR, 'aR.conditioned')
+            variable_summaries(aS, 'aS.conditioned')
         else:
             aR = theta.aR
             aS = theta.aS
@@ -111,7 +113,7 @@ class DR_Constant(BaseModel):
 
             X = tf.stack([d_x, d_rfp, d_yfp, d_cfp, d_f510, d_f430, d_luxR, d_lasR], axis=2)
             return X
-        return reaction_equations, {'aR': aR, 'aS': aS}
+        return reaction_equations
 
 
 class DR_ConstantStudentT(DR_Constant):
@@ -150,8 +152,8 @@ class DR_ConstantStudentT(DR_Constant):
 
 class DR_Constant_Precisions(DR_Constant):
 
-    def init_with_params(self, params, relevance, default_devices):
-        super(DR_Constant_Precisions, self).init_with_params(params, relevance, default_devices)
+    def init_with_params(self, params, procdata):
+        super(DR_Constant_Precisions, self).init_with_params(params, procdata)
 
         self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F510', 'F430', 'LuxR', 'LasR']
         self.init_prec = default_get_value(params, 'init_prec', 0.00001)
@@ -221,6 +223,8 @@ class DR_Constant_Precisions(DR_Constant):
             ones = tf.tile([[1.0]], tf.shape(theta.r))
             aR = self.device_conditioner(ones, 'aR', dev_1hot, kernel_initializer=kinit)
             aS = self.device_conditioner(ones, 'aS', dev_1hot, kernel_initializer=kinit)
+            variable_summaries(aR, 'aR.conditioned')
+            variable_summaries(aS, 'aS.conditioned')
         else:
             aR = theta.aR
             aS = theta.aS
@@ -268,4 +272,4 @@ class DR_Constant_Precisions(DR_Constant):
 
             return tf.concat([states,vrs], 2)
 
-        return reaction_equations, {'aR': aR, 'aS': aS}
+        return reaction_equations

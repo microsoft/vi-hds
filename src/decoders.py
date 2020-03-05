@@ -10,11 +10,11 @@ class ODEDecoder(object):
         self.ode_model = params["model"]
 
     def __call__(self, conds_obs, dev_1hot, times, thetas, clipped_thetas, condition_on_device):
-        x_sample, _f_sample, dev_conditioned = self.ode_model.simulate(
+        x_sample, _f_sample = self.ode_model.simulate(
             clipped_thetas, times, conds_obs, dev_1hot, self.solver, condition_on_device)
         # TODO: why just params here and not clipped params?
         x_predict = self.ode_model.observe(x_sample, thetas)
-        return x_sample, x_predict, dev_conditioned
+        return x_sample, x_predict
 
 RNNDecoder = None  # import hack
 # class RNNDecoder(object):

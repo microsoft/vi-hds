@@ -31,14 +31,9 @@ class Decoder:
         # self.x_sample: Tensor of float32, shape e.g. (?, ?, ?, 8)
         # self.x_post_sample: Tensor of float32, shape e.g. (?, ?, ?, 4)
         # self.device_conditioned: Dict[str,Tensor], keys e.g. 'aS', 'aR'.
-        self.x_sample, self.x_post_sample, self.device_conditioned = ode_decoder(
+        self.x_sample, self.x_post_sample = ode_decoder(
             placeholders.conds_obs, placeholders.dev_1hot, times, encoder.theta, encoder.clipped_theta,
             condition_on_device=True)
-        self.set_up_summaries(params["plot_histograms"])
-
-    def set_up_summaries(self, plot_histograms):
-        for para, var in self.device_conditioned.items():
-            variable_summaries(var, '%s.conditioned' % para, plot_histograms)
 
 class Encoder:
     '''

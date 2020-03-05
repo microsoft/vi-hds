@@ -36,7 +36,7 @@ def is_empty(a):
     else:
         return True
 
-def variable_summaries(var, name, plot_histograms : bool):
+def variable_summaries(var, name, plot_histograms=False):
     """ Attach summaries to a scalar node using Tensorboard """
     with tf.name_scope(name):
         #print("- Attaching tensorboard summary for %s"%name)

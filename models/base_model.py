@@ -10,6 +10,7 @@ import pdb
 
 from solvers import modified_euler_integrate, integrate_while
 from utils import default_get_value, variable_summaries
+from procdata import ProcData
 
 def power(x, a):
     return tf.exp(a * tf.log(x))
@@ -40,14 +41,16 @@ class BaseModel(object):
     # params (from elsewhere in the YAML structure) into it. It would really be better construct
     # it properly after the structure has been loaded.
     # pylint: disable=attribute-defined-outside-init
-    def init_with_params(self, params, relevance, default_devices):
+    def init_with_params(self, params, procdata : ProcData):
         self.params = params
-        self.relevance = relevance
-        self.default_devices = default_devices
+        self.relevance = procdata.relevance_vectors
+        self.default_devices = procdata.default_devices
+        self.device_depth = procdata.device_depth
+        self.n_treatments = len(procdata.conditions)
         self.use_laplace = default_get_value(self.params, 'use_laplace', False, verbose=True)
         self.precision_type = default_get_value(self.params, 'precision_type', 'constant', verbose=True)
         self.species = None
-        self.n_species = None
+        self.nspecies = None
         #self.layers = []
 
     def gen_reaction_equations(self, theta, conditions, dev_1hot, condition_on_device=True):
@@ -78,7 +81,7 @@ class BaseModel(object):
 
     def simulate(self, theta, times, conditions, dev_1hot, solver, condition_on_device=True):
         init_state = self.initialize_state(theta)
-        d_states_d_t, dev_conditioned = self.gen_reaction_equations(theta, conditions, dev_1hot, condition_on_device)
+        d_states_d_t = self.gen_reaction_equations(theta, conditions, dev_1hot, condition_on_device)
         if solver == 'modeuler':
             # Evaluate ODEs using Modified-Euler
             t_state, f_state = modified_euler_integrate(d_states_d_t, init_state, times)
@@ -96,7 +99,7 @@ class BaseModel(object):
             f_state_tr = None
         else:
             raise NotImplementedError("Solver <%s> is not implemented" % solver)
-        return t_state_tr, f_state_tr, dev_conditioned
+        return t_state_tr, f_state_tr
 
     @classmethod
     def observe(cls, x_sample, _theta):
@@ -140,10 +143,12 @@ class BaseModel(object):
         return log_prob
 
 class NeuralPrecisions(object):
-    def __init__(self, nspecies, n_hidden_precisions):
+    def __init__(self, nspecies, n_hidden_precisions, inputs = None, hidden_activation = tf.nn.tanh):
         '''Initialize neural precisions layers'''
         self.nspecies = nspecies
-        inp = Dense(n_hidden_precisions, activation = tf.nn.tanh, use_bias=True, name = "prec_hidden", input_shape=(self.nspecies+1,))
+        if inputs is None:
+            inputs = self.nspecies+1
+        inp = Dense(n_hidden_precisions, activation = hidden_activation, use_bias=True, name = "prec_hidden", input_shape=(inputs,))
         act_layer = Dense(4, activation = tf.nn.sigmoid, name = "prec_act", bias_constraint = NonNeg())
         deg_layer = Dense(4, activation = tf.nn.sigmoid, name = "prec_deg", bias_constraint = NonNeg())
         self.act = Sequential([inp, act_layer])
