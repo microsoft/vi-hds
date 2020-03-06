@@ -15,7 +15,7 @@ def main():
     args = parser.parse_args()
     spec = utils.load_config_file(args.yaml)  # spec is a dict of dicts of dicts
     data_settings = procdata.apply_defaults(spec["data"])
-    para_settings = utils.apply_defaults(spec["params"], args)
+    para_settings = utils.apply_defaults(spec["params"])
     data = procdata.ProcData(data_settings)
     
     xval_merge = XvalMerge(args, data_settings)

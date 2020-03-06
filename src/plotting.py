@@ -133,7 +133,7 @@ def plot_weighted_theta(procdata, theta_names, TR_iws, TR_theta, TR_device_ids, 
     return g.fig
 
 def xval_species_summary(res, procdata, devices, nplots, fixYaxis = False, separatedInputs = False):
-    '''Plot the simulated latent species'''    
+    '''Plot the simulated latent species'''
     ndevices = len(devices)
     fs = 14
     treat_max = np.max(res.treatments)
@@ -193,7 +193,7 @@ def xval_species_summary(res, procdata, devices, nplots, fixYaxis = False, separ
             ax = axs[iu,0]
         ax.set_ylabel(procdata.pretty_devices[device_id], labelpad=20, fontweight='bold', fontsize=fs)
     sns.despine()
-    pp.tight_layout()            
+    pp.tight_layout()
         
     # Global axis labels: add a big axis, then hide frame
     f.add_subplot(111, frameon=False)

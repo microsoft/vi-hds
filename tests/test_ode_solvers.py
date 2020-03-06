@@ -23,7 +23,7 @@ from run_xval import Runner, create_parser
 parser = create_parser(False)
 args = parser.parse_args(['./specs/dr_constant_icml.yaml'])
 spec = utils.load_config_file(args.yaml)  # spec is a dict of dicts of dicts
-para_settings = utils.apply_defaults(spec['params'], args)
+para_settings = utils.apply_defaults(spec['params'])
 data_settings = procdata.apply_defaults(spec["data"])
 model = para_settings['model']
 
@@ -57,7 +57,7 @@ self.n_batch = min(self.params_dict['n_batch'], self.dataset_pair.n_train)
 
 # Set various attributes of the model
 model = self.params_dict["model"]
-model.init_with_params(self.params_dict, self.procdata.relevance_vectors, self.procdata.default_devices)
+model.init_with_params(self.params_dict, self.procdata)
 
 # Define simulation variables and run simulator
 times = np.linspace(0.0, 20.0, 101).astype(np.float32)
