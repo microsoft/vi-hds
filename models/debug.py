@@ -2,8 +2,8 @@ import tensorflow as tf
 from models.base_model import BaseModel
 
 class Debug_Constant(BaseModel):
-    def init_with_params(self, params, relevance, default_devices):
-        super(Debug_Constant, self).init_with_params(params, relevance, default_devices)
+    def init_with_params(self, params, procdata):
+        super(Debug_Constant, self).init_with_params(params, procdata)
         self.species = ['OD', 'RFP', 'YFP', 'CFP']
         self.n_species = len(self.species)
 
@@ -51,4 +51,4 @@ class Debug_Constant(BaseModel):
             X = tf.stack([d_x, d_rfp, d_yfp, d_cfp], axis=2)
             X = tf.verify_tensor_all_finite(X, "RHS NOT finite")
             return X
-        return reaction_equations, {}
+        return reaction_equations

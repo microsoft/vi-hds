@@ -182,15 +182,13 @@ class XvalMerge(object):
             pp.close(f2)
             self.xval_writer.flush()
 
-        nvars = np.shape(self.X_sample)[3] - 4
-        if nvars > 0:
-            print("Making species figure")
-            f_species = plotting.xval_species_summary(self, procdata, device_ids, nvars, fixYaxis=True, separatedInputs=self.separated_inputs)
-            self.save_figs(f_species,'xval_species')
-            plot_op_species = make_summary_image_op(f_species, 'Species', 'Species')
-            self.xval_writer.add_summary(tf.Summary(value=[plot_op_species]), self.epoch)
-            pp.close(f_species)
-            self.xval_writer.flush()
+        print("Making species figure")
+        f_species = plotting.species_summary(procdata, self.names, self.treatments, self.devices, self.times, self.X_sample, self.importance_weights, device_ids, fixYaxis = True)
+        self.save_figs(f_species,'xval_species')
+        plot_op_species = make_summary_image_op(f_species, 'Species', 'Species')
+        self.xval_writer.add_summary(tf.Summary(value=[plot_op_species]), self.epoch)
+        pp.close(f_species)
+        self.xval_writer.flush()
 
         print("Making global parameters figure")
         f_gparas = plotting.xval_global_parameters(self)

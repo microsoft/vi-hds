@@ -21,7 +21,7 @@ import tensorflow as tf
 # Local imports
 import procdata
 from parameters import Parameters
-from plotting import plot_prediction_summary, xval_treatments, plot_weighted_theta
+from plotting import plot_prediction_summary, xval_treatments, plot_weighted_theta, species_summary
 from convenience import Decoder, Encoder, SessionVariables, LocalAndGlobal, Objective, Placeholders, TrainingLogData, TrainingStepper
 from xval import XvalMerge
 import utils
@@ -256,6 +256,15 @@ class Runner:
         writer.add_summary(tf.Summary(value=[plot_op]), epoch)
         pp.close(fig)
 
+    def _plot_species_figure(self, dataset, output, epoch, writer):
+        iws = np.exp(np.squeeze(output.log_normalized_iws))
+        devices = list(range(len(self.procdata.device_names)))
+        fig = species_summary(self.procdata, self.decoder.names, dataset.treatments, dataset.devices, self.dataset_pair.times, 
+            output.x_sample, iws, devices)
+        plot_op = utils.make_summary_image_op(fig, 'Species', 'Species')
+        writer.add_summary(tf.Summary(value=[plot_op]), epoch)
+        pp.close(fig)
+
     def _plot_weighted_theta_figure(self, training_output, validation_output, valid_writer, epoch, sample):
         name = 'Theta-Resample' if sample else 'Theta-Uniform'
         theta_fig = plot_weighted_theta(self.procdata, self.encoder.theta_names, training_output.normalized_iws,
@@ -267,30 +276,22 @@ class Runner:
         pp.close(theta_fig)
         pp.close('all')
 
-    # def _plot_treatment_figure(self, dataset, output, epoch, writer):
-    #     devices = [2,3,4,5,6,7]
-    #     pretty_devices = ['Pcat-Pcat','RS100-S32','RS100-S34','R33-S32','R33-S34','R33-S175']
-    #     treatment_fig = xval_treatments(self.procdata, dataset.X, output.x_post_sample, output.precisions, output.log_normalized_iws, 
-    #         dataset.devices, dataset.treatments, devices, pretty_devices)
-    #     treatment_plot_op = utils.make_summary_image_op(treatment_fig, 'Treatment')
-    #     writer.add_summary(treatment_plot_op, epoch)
-    #     pp.close(treatment_fig)
-
-    def _evaluate_elbo_and_plot(self, beta_val, epoch, eval_tensors, log_data, merged, sess,
-                                train_writer, valid_writer, saver):
+    def _evaluate_elbo_and_plot(self, beta_val, epoch, eval_tensors, log_data, merged, sess, train_writer, valid_writer, saver):
         print("epoch %4d"%epoch, end='', flush=True)
         log_data.n_test += 1
         test_start = time.time()
-        # print("----------  BEGIN TESTING -----------------")
+        
+        # Training
         self.train_feed_dict[self.placeholders.u] = np.random.randn(
             self.dataset_pair.n_train, self.args.train_samples, self.n_theta)
         training_output = SessionVariables(sess.run(eval_tensors + [merged], feed_dict=self.train_feed_dict))
         train_writer.add_summary(training_output.summaries, epoch)
         print(" | train (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(training_output.elbo, log_data.total_train_time / epoch, log_data.total_train_time), end='', flush=True)
-        
-        # Plotting
         if self.args.no_figures is False:
             self._plot_prediction_summary_figure(self.dataset_pair.train, training_output, epoch, train_writer)
+            self._plot_species_figure(self.dataset_pair.train, training_output, epoch, train_writer)
+        
+        # Validation
         self.val_feed_dict[self.placeholders.u] = np.random.randn(
             self.dataset_pair.n_val, self.args.test_samples, self.n_theta)
         validation_output = SessionVariables(sess.run(eval_tensors + [merged], feed_dict=self.val_feed_dict))
@@ -300,14 +301,10 @@ class Runner:
         valid_writer.add_summary(validation_output.summaries, epoch)
         if self.args.no_figures is False:
             self._plot_prediction_summary_figure(self.dataset_pair.val, validation_output, epoch, valid_writer)
+            self._plot_species_figure(self.dataset_pair.val, validation_output, epoch, valid_writer)
         log_data.total_test_time += time.time() - test_start
         print(" | val (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(validation_output.elbo, log_data.total_test_time / log_data.n_test, log_data.total_test_time))
         
-        if np.mod(epoch, self.args.epochs) == 0 & self.args.no_figures is False:
-            print("-------------- FINAL PLOTS --------------")
-            #self._plot_treatment_figure(self.dataset_pair.val, validation_output, epoch, train_writer)
-            for sample in [True, False]:
-                self._plot_weighted_theta_figure(training_output, validation_output, valid_writer, epoch, sample)
         log_data.training_elbo_list.append(training_output.elbo)
         log_data.validation_elbo_list.append(validation_output.elbo)
         train_writer.flush()

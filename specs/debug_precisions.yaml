@@ -1,0 +1,66 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under a Microsoft Research License.
+
+data:
+  devices: ['Pcat_Y81C76']
+  pretty_devices: ['Pcat-Pcat']
+  groups:
+    aR: [0]
+    aS: [0]
+  default_devices:
+    aR: 0
+    aS: 0
+  files: ['proc141006.csv']
+  signals: ["OD", "mRFP1", "EYFP", "ECFP"]
+  conditions: ["C6","C12"]
+  separate_conditions: true
+  
+params:
+  model: !!python/object:models.dr_constant.DR_Constant_Precisions {}
+  learning_boundaries: [250,1000]
+  learning_rates: [0.01,0.002,0.0002]
+  n_hidden_decoder_precisions: 5
+
+  constant: { init_x: 0.002, init_rfp: 0.0, init_yfp: 0.0, init_cfp: 0.0, init_luxR: 0.0, init_lasR: 0.0 }
+  
+  # SHARED PARAMETERS 
+  shared:
+    auto_precision_lognormal:   { distribution: LogNormal, mu: -5.0, sigma: 2.0 }
+    a_precision_lognormal:      { distribution: LogNormal, mu: 1.0,  sigma: 2.0 }
+    dfp_precision_lognormal:    { distribution: LogNormal, mu: -2.0, sigma: 1.5 }
+
+  global_conditioned:
+    conditioning: { devices: true, treatments: false }
+    
+  global:    
+    e76:    { distribution: LogNormal, mu: -3.0, sigma: 1.0}
+    e81:    { distribution: LogNormal, mu: -3.0, sigma: 1.0}
+    KGR_76: { distribution: LogNormal, mu: 2.0, sigma: 3.0}
+    KGR_81: { distribution: LogNormal, mu: -2.0, sigma: 3.0}
+    KGS_76: { distribution: LogNormal, mu: -2.0, sigma: 3.0}
+    KGS_81: { distribution: LogNormal, mu: 2.0, sigma: 3.0}
+    KR6:    { distribution: LogNormal, mu: -6.0, sigma: 3.0}
+    KR12:   { distribution: LogNormal, mu: -12.0, sigma: 3.0}
+    KS6:    { distribution: LogNormal, mu: -12.0, sigma: 3.0}
+    KS12:   { distribution: LogNormal, mu: -6.0, sigma: 3.0}
+    nR:     { distribution: LogNormal, mu: 1.0, sigma: 0.25}
+    nS:     { distribution: LogNormal, mu: 1.0, sigma: 0.25}
+    aYFP:   { distribution: LogNormal, mu: 0.0, sigma: 2.0}
+    aCFP:   { distribution: LogNormal, mu: 0.0, sigma: 2.0}
+
+    dR:     { distribution: LogNormal, mu: -2.0, sigma: 1.0}
+    dS:     { distribution: LogNormal, mu: -2.0, sigma: 1.0}
+    drfp:   { distribution: dfp_precision_lognormal}
+    dyfp:   { distribution: dfp_precision_lognormal}
+    dcfp:   { distribution: dfp_precision_lognormal}
+    autoY:  { distribution: auto_precision_lognormal}
+    autoC:  { distribution: auto_precision_lognormal}
+
+  # LOCAL PARAMETERS:
+  local:
+    conditioning: { devices: true, treatments: False }
+
+    r:    {distribution: LogNormal, mu: 0.0,   sigma: 0.25}
+    K:    {distribution: LogNormal, mu: 1.0,   prec: 2.0}
+    tlag: {distribution: LogNormal, mu: 0.0,   prec: 2.0}
+    rc:   {distribution: LogNormal, mu: 0.0,   sigma: 2.0}  #blows up on 'prec', why?

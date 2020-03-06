@@ -229,6 +229,8 @@ class ProcData:
         self.device_idx_to_device_name = dict(enumerate(self.device_names))
         # Map from device indices (as floats) to device names
         self.device_lookup = {v: k for k, v in self.device_map.items()}
+        # Separated conditions
+        self.separate_conditions = data_settings["separate_conditions"]
         # Normalisation constants
         self.normalize = data_settings["normalize"]
         # Background subtraction

@@ -16,6 +16,7 @@ class DR_Constant(BaseModel):
         # do the other inits now
         self.use_aRFP = default_get_value(params, "use_aRFP", False)
         self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR']
+        self.nspecies = 8
 
     def initialize_state(self, theta):
         n_batch = theta.get_n_batch()

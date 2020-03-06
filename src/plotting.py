@@ -132,11 +132,12 @@ def plot_weighted_theta(procdata, theta_names, TR_iws, TR_theta, TR_device_ids, 
     #g = g.map_offdiag(sns.sactter,  kind='hex' kwargs={})
     return g.fig
 
-def xval_species_summary(res, procdata, devices, nplots, fixYaxis = False, separatedInputs = False):
+def species_summary(procdata, names, treatments, device_ids, times, X_sample, importance_weights, devices, fixYaxis = False):
     '''Plot the simulated latent species'''
     ndevices = len(devices)
+    nplots = np.shape(X_sample)[3]
     fs = 14
-    treat_max = np.max(res.treatments)
+    treat_max = np.max(treatments)
     colors = 'grbcmyk'
     
     mus = []
@@ -147,17 +148,17 @@ def xval_species_summary(res, procdata, devices, nplots, fixYaxis = False, separ
         mu_maxs.append([])
         maxs_i = []
         for iu,device_id in enumerate(devices):
-            if separatedInputs is True:
+            if procdata.separate_conditions is True:
                 mus[idx].append([])
                 mu_maxs[idx].append([])
                 for i, _ in enumerate(procdata.conditions):
-                    locs = np.where((res.devices == device_id) & (res.treatments[:,i] > 0.0))[0]
-                    mu = np.sum( res.importance_weights[locs,:,np.newaxis]*res.X_sample[locs, :, :, idx], 1)
+                    locs = np.where((device_ids == device_id) & (treatments[:,i] > 0.0))[0]
+                    mu = np.sum( importance_weights[locs,:,np.newaxis]*X_sample[locs, :, :, idx], 1)
                     mus[idx][iu].append(mu)
                     mu_maxs[idx][iu].append(np.max(mu))
             else:
-                locs = np.where(res.devices == device_id)[0]
-                mu = np.sum( res.importance_weights[locs,:,np.newaxis]*res.X_sample[locs, :, :, idx], 1)
+                locs = np.where(device_ids == device_id)[0]
+                mu = np.sum(importance_weights[locs,:,np.newaxis]*X_sample[locs, :, :, idx], 1)
                 mus[idx].append(mu)
                 mu_maxs[idx].append(np.max(mu))
             maxs_i.append(np.max(mu_maxs[idx]))
@@ -170,22 +171,22 @@ def xval_species_summary(res, procdata, devices, nplots, fixYaxis = False, separ
                 ax = axs[idx]
             else:
                 ax = axs[iu,idx]
-            if separatedInputs is True:
+            if procdata.separate_conditions is True:
                 for i,_ in enumerate(procdata.conditions):
-                    locs = np.where((res.devices == device_id) & (res.treatments[:,i] > 0.0))[0]
+                    locs = np.where((device_ids == device_id) & (treatments[:,i] > 0.0))[0]
                     for iloc,loc in enumerate(locs):
-                        alpha = res.treatments[loc,i] / treat_max
-                        ax.plot(res.times, mus[idx][iu][i][iloc].T/maxs[idx], '-', lw=1, alpha=alpha, color=colors[i] )
+                        alpha = treatments[loc,i] / treat_max
+                        ax.plot(times, mus[idx][iu][i][iloc].T/maxs[idx], '-', lw=1, alpha=alpha, color=colors[i] )
             else:
-                locs = np.where(res.devices == device_id)[0]
+                locs = np.where(device_ids == device_id)[0]
                 for iloc,loc in enumerate(locs):
-                    ax.plot(res.times, mus[idx][iu][iloc].T/maxs[idx], '-', lw=1, color='k' )
+                    ax.plot(times, mus[idx][iu][iloc].T/maxs[idx], '-', lw=1, color='k' )
             if fixYaxis: ax.set_ylim(-0.1,1.1)
             if iu == 0:
-                if idx < len(res.names): 
-                    ax.set_title(res.names[idx])
+                if idx < len(names): 
+                    ax.set_title(names[idx])
                 else:
-                    ax.set_title("Latent %d"%(idx-len(res.names)))
+                    ax.set_title("Latent %d"%(idx-len(names)))
             ax.set_xticks([0,4,8,12,16])
         if ndevices is 1:
             ax = axs[0]
