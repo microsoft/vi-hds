@@ -38,16 +38,14 @@ def is_empty(a):
 
 def variable_summaries(var, name, plot_histograms=False):
     """ Attach summaries to a scalar node using Tensorboard """
-    with tf.name_scope(name):
-        #print("- Attaching tensorboard summary for %s"%name)
-        mean = tf.reduce_mean(var)
-        tf.summary.scalar('mean', mean)
-        with tf.name_scope('stddev'):
-            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-        tf.summary.scalar('stddev', stddev)
-        tf.summary.scalar('max', tf.reduce_max(var))
-        tf.summary.scalar('min', tf.reduce_min(var))
-        if plot_histograms: tf.summary.histogram('histogram', var)
+    #print("- Attaching tensorboard summary for %s"%name)
+    mean = tf.reduce_mean(var)
+    tf.summary.scalar(name+'/mean', mean)
+    stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+    tf.summary.scalar(name+'/stddev', stddev)
+    tf.summary.scalar(name+'/max', tf.reduce_max(var))
+    tf.summary.scalar(name+'/min', tf.reduce_min(var))
+    if plot_histograms: tf.summary.histogram(name+'/histogram', var)
 
 def make_summary_image_op(fig, tag, scope, image_format='png'):
     buf = fig_to_byte_buffer(fig, image_format=image_format)

@@ -222,17 +222,23 @@ class Runner:
         self.encoder.q.attach_summaries(plot_histograms)  # global and local parameters of q distribution
         unnormed_iw = self.objective.log_unnormalized_iws[ts_to_vis, :]
         self_normed_iw = self.objective.normalized_iws[ts_to_vis, :]   # not in log space
-        with tf.name_scope('IWS'):
-            utils.variable_summaries(unnormed_iw, 'iws_unn_log', plot_histograms)
-            utils.variable_summaries(self_normed_iw, 'iws_normed', plot_histograms)
-            tf.summary.scalar('nonzeros', tf.count_nonzero(self_normed_iw))
+        utils.variable_summaries(unnormed_iw, 'IWS_unn_log', plot_histograms)
+        utils.variable_summaries(self_normed_iw, 'IWS_normed', plot_histograms)
+        tf.summary.scalar('IWS_normed/nonzeros', tf.count_nonzero(self_normed_iw))
 
-        #print(tf.shape(log_p_observations))
         with tf.name_scope('ELBO'):
-            tf.summary.scalar('log_p', tf.reduce_mean(self.training_stepper.logsumexp_log_p))  # [batch, 1]
-            tf.summary.scalar('log_prior', tf.reduce_mean(self.training_stepper.logsumexp_log_p_theta))
-            tf.summary.scalar('loq_q', tf.reduce_mean(self.training_stepper.logsumexp_log_q_theta))
             tf.summary.scalar('elbo', self.objective.elbo)
+            # log(P) and also a per-species breakdown
+            log_p = tf.reduce_mean(tf.reduce_logsumexp(self.objective.log_p_observations, axis=1))
+            tf.summary.scalar('log_p', log_p)  # [batch, 1]
+            for i,plot in enumerate(self.procdata.signals):
+                log_p_by_species = tf.reduce_mean(tf.reduce_logsumexp(self.objective.log_p_observations_by_species[:,:,i], axis=1))
+                tf.summary.scalar('log_p_'+plot, log_p_by_species)
+            # Priors
+            logsumexp_log_p_theta = tf.reduce_logsumexp(self.encoder.log_p_theta, axis=1)
+            tf.summary.scalar('log_prior', tf.reduce_mean(logsumexp_log_p_theta))
+            logsumexp_log_q_theta = tf.reduce_logsumexp(self.encoder.log_q_theta, axis=1)
+            tf.summary.scalar('loq_q', tf.reduce_mean(logsumexp_log_q_theta))
 
     def _create_session_variables(self):
         return SessionVariables([

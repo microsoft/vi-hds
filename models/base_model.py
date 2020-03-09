@@ -139,7 +139,9 @@ class BaseModel(object):
         lpfunc = log_prob_laplace if self.use_laplace else log_prob_gaussian
         log_prob = lpfunc(x_obs_, x_predict, log_precisions, precisions)
         # sum along the time and observed species axes
-        log_prob = tf.reduce_sum(log_prob, [2, 3])
+        #log_prob = tf.reduce_sum(log_prob, [2, 3])
+        # sum along the time axis
+        log_prob = tf.reduce_sum(log_prob, 2)
         return log_prob
 
 class NeuralPrecisions(object):

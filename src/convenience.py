@@ -160,7 +160,8 @@ class LocalAndGlobal:
 class Objective:
     '''A convenience class to hold variables related to the objective function of the network.'''
     def __init__(self, encoder, decoder, model, placeholders):
-        self.log_p_observations = model.log_prob_observations(decoder.x_post_sample, placeholders.x_obs, encoder.theta, decoder.x_sample)
+        self.log_p_observations_by_species = model.log_prob_observations(decoder.x_post_sample, placeholders.x_obs, encoder.theta, decoder.x_sample)
+        self.log_p_observations = tf.reduce_sum(self.log_p_observations_by_species, 2)
         # let the model decide what precisions to use.
         # pylint:disable=fixme
         # TODO: will work for constant time precisions, but not for decayed. (get precisions after log_prob called)
@@ -226,11 +227,6 @@ class TrainingStepper:
         #   momentum = default_get_value(params_dict, "momentum", 0.0)
         #   opt_func = tf.train.MomentumOptimizer(learning_rate, momentum=momentum)
         #   opt_func = tf.train.RMSPropOptimizer(learning_rate)
-        # Initially the gradients can be too big, clip them.
-        # All three of the following are tf.Tensor, shape (?,1):
-        self.logsumexp_log_p = tf.reduce_logsumexp(objective.log_p_observations, axis=1, keepdims=True)
-        self.logsumexp_log_p_theta = tf.reduce_logsumexp(encoder.log_p_theta, axis=1, keepdims=True)
-        self.logsumexp_log_q_theta = tf.reduce_logsumexp(encoder.log_q_theta, axis=1, keepdims=True)
         opt_func = tf.train.AdamOptimizer(learning_rate)
         self.train_step = self.build_train_step(dreg, encoder, objective, opt_func)
 
