@@ -7,7 +7,7 @@ class Debug_Constant(BaseModel):
         self.species = ['OD', 'RFP', 'YFP', 'CFP']
         self.n_species = len(self.species)
 
-    def initialize_state(self, theta):
+    def initialize_state(self, theta, _treatments):
         n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
         x0 = tf.concat([tf.reshape(theta.init_x, [n_batch,n_iwae,1]), tf.zeros([n_batch, n_iwae, self.n_species-1])], 2)

@@ -21,7 +21,7 @@ class DR_Blackbox( BaseModel ):
         self.n_latent_species = params['n_latent_species']        
         self.init_latent_species = default_get_value(params, 'init_latent_species', 0.001)
 
-    def initialize_state(self, theta):
+    def initialize_state(self, theta, _treatments):
         n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
         x0 = tf.stack([theta.init_x, theta.init_rfp, theta.init_yfp, theta.init_cfp], axis=2)
@@ -110,7 +110,7 @@ class DR_BlackboxPrecisions( DR_Blackbox ):
         self.n_hidden_precisions = params['n_hidden_decoder_precisions']
         self.n_states = 4 + self.n_latent_species + 4
 
-    def initialize_state(self, theta):
+    def initialize_state(self, theta, _treatments):
         n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
         zero = tf.zeros([n_batch, n_iwae])

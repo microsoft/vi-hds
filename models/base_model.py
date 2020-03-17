@@ -80,7 +80,7 @@ class BaseModel(object):
         raise NotImplementedError("TODO: write your initialize_state")
 
     def simulate(self, theta, times, conditions, dev_1hot, solver, condition_on_device=True):
-        init_state = self.initialize_state(theta)
+        init_state = self.initialize_state(theta, conditions)
         d_states_d_t = self.gen_reaction_equations(theta, conditions, dev_1hot, condition_on_device)
         if solver == 'modeuler':
             # Evaluate ODEs using Modified-Euler

@@ -18,7 +18,7 @@ class DR_Constant(BaseModel):
         self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR']
         self.nspecies = 8
 
-    def initialize_state(self, theta):
+    def initialize_state(self, theta, _treatments):
         n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
         zero = tf.zeros([n_batch, n_iwae])
@@ -161,7 +161,7 @@ class DR_Constant_Precisions(DR_Constant):
         self.prec_constants = [self.init_prec for i in range(4)]
         self.n_hidden_precisions = params['n_hidden_decoder_precisions']
     
-    def initialize_state(self, theta):
+    def initialize_state(self, theta, _treatments):
         n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
         zero = tf.zeros([n_batch, n_iwae])
