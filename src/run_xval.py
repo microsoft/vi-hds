@@ -81,6 +81,9 @@ class Runner:
             if split is not None:
                 args.split = split
             print("split = %d" % args.split)
+        if args.epochs < args.test_epoch:
+            msg = "No test epochs possible with epochs = %d and test_epochs = %d"%(args.epochs,args.test_epoch)
+            raise Exception(msg)
         return args
 
     def _fix_random_seed(self):
@@ -340,6 +343,7 @@ class Runner:
         train_writer = tf.summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'train_%s' % held_out_name))
         valid_writer = tf.summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'valid_%s' % held_out_name))
         eval_tensors = self._create_session_variables().as_list()
+        saver = tf.train.Saver()
         print("----------------------------------------------")
         print("Starting Session...")
         beta = 1.0
@@ -347,7 +351,6 @@ class Runner:
             self._fix_random_seed()  # <-- force run to be deterministic given random seed
             # initialize variables in the graph
             sess.run(tf.global_variables_initializer())
-            saver = tf.train.Saver()
             log_data = TrainingLogData()
             print("===========================")
             if self.args.heldout:
