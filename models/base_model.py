@@ -76,7 +76,7 @@ class BaseModel(object):
         else:
             return tf.reshape(param_flat * param_cond, [n_batch, n_iwae])
 
-    def initialize_state(self, theta):
+    def initialize_state(self, theta, treatments):
         raise NotImplementedError("TODO: write your initialize_state")
 
     def simulate(self, theta, times, conditions, dev_1hot, solver, condition_on_device=True):
