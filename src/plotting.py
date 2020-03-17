@@ -478,7 +478,7 @@ def xval_variable_parameters(res, ncols=2):
     
     ps = []
     for i,p in enumerate(all_ps):
-        if p+'mu' in qs:
+        if p+'.mu' in qs:
             if np.shape(qs[p + '.mu'])[0] == ndata:
                 ps.append(p)
     #print(ps)
