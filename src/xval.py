@@ -125,7 +125,7 @@ class XvalMerge(object):
         if location is None:
             location = self.trainer.tb_log_dir
         def load(base):
-            return np.load(os.path.join(location, base))
+            return np.load(os.path.join(location, base), allow_pickle=True)
         def loadtxt(base):
             return np.loadtxt(os.path.join(location, base), dtype=str, delimiter=" ")
         self.elbo = load("xval_result_elbo.npy")

@@ -527,10 +527,11 @@ def xval_global_parameters(res, ncols=6):
     qs = dict(zip(res.q_names, res.q_values))
     
     indexes = np.unique([n.split('.')[0] for n in res.q_names], return_index=True)[1]
-    all_ps = [[n.split('.')[0] for n in res.q_names][index] for index in sorted(indexes)]    
+    all_ps = [[n.split('.')[0] for n in res.q_names][index] for index in sorted(indexes)]
+    print(all_ps) 
     ps = []
     for i,p in enumerate(all_ps):
-        if p+'mu' in qs:
+        if p+'.mu' in qs:
             if np.shape(qs[p + '.mu'])[0] < ndata:
                 ps.append(p)
     
@@ -539,8 +540,11 @@ def xval_global_parameters(res, ncols=6):
         return
     
     # Define geometry and figures
-    nrows = np.ceil(len(ps) / ncols).astype(int)
-    f, axs = pp.subplots(nrows, ncols, figsize=(12,2*nrows))
+    n = len(ps)
+    if n < ncols:
+        ncols = n
+    nrows = np.ceil(n / ncols).astype(int)
+    f, axs = pp.subplots(nrows, ncols, figsize=(2*ncols,2*nrows))
     f.suptitle('Global parameters', fontsize=14)
     for i in range(nrows):
         for j in range(ncols):
