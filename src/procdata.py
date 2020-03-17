@@ -175,7 +175,10 @@ def depth(group_values):
     return len(set([g for g in group_values if g is not None]))
 
 def apply_defaults(spec):
+    ndevices = len(spec["devices"])
     params = {
+        'groups': {'default': [0]*ndevices},
+        'default_devices': dict(),
         'normalize': None,
         'subtract_background': True,
         'separate_conditions': False
@@ -196,10 +199,7 @@ class ProcData:
         # The different devices we work with
         self.device_names = data_settings["devices"]
         self.pretty_devices = data_settings["pretty_devices"]
-        if "default_devices" in data_settings:
-            self.default_devices = data_settings["default_devices"]
-        else:
-            self.default_devices = dict()
+        self.default_devices = data_settings["default_devices"]
         # Conditions (inputs)
         self.conditions = data_settings["conditions"]
         # Files to be loaded
