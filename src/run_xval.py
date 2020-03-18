@@ -299,6 +299,7 @@ class Runner:
         if self.args.no_figures is False:
             self._plot_prediction_summary_figure(self.dataset_pair.train, training_output, epoch, train_writer)
             self._plot_species_figure(self.dataset_pair.train, training_output, epoch, train_writer)
+        train_writer.flush()
         
         # Validation
         self.val_feed_dict[self.placeholders.u] = np.random.randn(
@@ -313,11 +314,10 @@ class Runner:
             self._plot_species_figure(self.dataset_pair.val, validation_output, epoch, valid_writer)
         log_data.total_test_time += time.time() - test_start
         print(" | val (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(validation_output.elbo, log_data.total_test_time / log_data.n_test, log_data.total_test_time))
+        valid_writer.flush()
         
         log_data.training_elbo_list.append(training_output.elbo)
         log_data.validation_elbo_list.append(validation_output.elbo)
-        train_writer.flush()
-        valid_writer.flush()
 
     def _run_batch(self, beta_val, epoch_start, i_batch, log_data):
         # random indices of training data for this batch
