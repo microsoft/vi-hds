@@ -289,36 +289,38 @@ class Runner:
         print("epoch %4d"%epoch, end='', flush=True)
         log_data.n_test += 1
         test_start = time.time()
+        plot = np.mod(epoch, self.args.plot_epoch) == 0
         
         # Training
         self.train_feed_dict[self.placeholders.u] = np.random.randn(
             self.dataset_pair.n_train, self.args.train_samples, self.n_theta)
         training_output = SessionVariables(sess.run(eval_tensors + [merged], feed_dict=self.train_feed_dict))
         train_writer.add_summary(training_output.summaries, epoch)
-        print(" | train (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(training_output.elbo, log_data.total_train_time / epoch, log_data.total_train_time), end='', flush=True)
-        if self.args.no_figures is False:
+        if plot:
             self._plot_prediction_summary_figure(self.dataset_pair.train, training_output, epoch, train_writer)
             self._plot_species_figure(self.dataset_pair.train, training_output, epoch, train_writer)
+        print(" | train (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(training_output.elbo, log_data.total_train_time / epoch, log_data.total_train_time), end='', flush=True)
         train_writer.flush()
         
         # Validation
         self.val_feed_dict[self.placeholders.u] = np.random.randn(
             self.dataset_pair.n_val, self.args.test_samples, self.n_theta)
         validation_output = SessionVariables(sess.run(eval_tensors + [merged], feed_dict=self.val_feed_dict))
-        if validation_output.elbo > log_data.max_val_elbo:
-            log_data.max_val_elbo = validation_output.elbo
-            saver.save(sess, self.model_path)
         valid_writer.add_summary(validation_output.summaries, epoch)
-        if self.args.no_figures is False:
+        if plot:
             self._plot_prediction_summary_figure(self.dataset_pair.val, validation_output, epoch, valid_writer)
             self._plot_species_figure(self.dataset_pair.val, validation_output, epoch, valid_writer)
         log_data.total_test_time += time.time() - test_start
         print(" | val (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(validation_output.elbo, log_data.total_test_time / log_data.n_test, log_data.total_test_time))
         valid_writer.flush()
         
+        if validation_output.elbo > log_data.max_val_elbo:
+            log_data.max_val_elbo = validation_output.elbo
+            saver.save(sess, self.model_path)
+        
         log_data.training_elbo_list.append(training_output.elbo)
         log_data.validation_elbo_list.append(validation_output.elbo)
-
+    
     def _run_batch(self, beta_val, epoch_start, i_batch, log_data):
         # random indices of training data for this batch
         # i_batch = np.random.permutation(n_train)[:n_batch]
@@ -416,6 +418,7 @@ def create_parser(with_split: bool):
     parser.add_argument('--seed', type=int, default=0, help='Random seed (default: 0)')
     parser.add_argument('--epochs', type=int, default=1000, help='Training epochs')
     parser.add_argument('--test_epoch', type=int, default=20, help='Frequency of calling test')
+    parser.add_argument('--plot_epoch', type=int, default=100, help='Frequency of plotting figures')
     parser.add_argument('--train_samples', type=int, default=200, help='Number of samples from q, per datapoint, during training')
     parser.add_argument('--test_samples', type=int, default=1000, help='Number of samples from q, per datapoint, during testing')
     parser.add_argument('--dreg', type=bool, default=True, help='Use DReG estimator')
