@@ -423,7 +423,6 @@ def create_parser(with_split: bool):
     parser.add_argument('--test_samples', type=int, default=1000, help='Number of samples from q, per datapoint, during testing')
     parser.add_argument('--dreg', type=bool, default=True, help='Use DReG estimator')
     parser.add_argument('--verbose', action='store_true', default=False, help='Print more information about parameter setup')
-    parser.add_argument('--no_figures', action='store_true', default=False, help='Don''t create figures during training/validation')
     if with_split:
         # We make --heldout (heldout device) and --split mutually exclusive. Really we'd like to say it's allowed
         # to specify *either* --heldout *or* --split and/or --folds, but argparse isn't expressive enough for that.

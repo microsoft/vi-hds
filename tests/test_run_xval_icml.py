@@ -39,7 +39,7 @@ def pre_test(pattern, num_folds):
             '--train_sample=3 --test_samples=3 specs/dr_blackbox_xval.yaml') % (pattern, num_folds)
     else:
         cmd = ('python src/%s.py --experiment=TEST --epochs=8 --test_epoch=4 '
-            '--train_sample=10 --test_samples=10 --no_figures specs/dr_blackbox_xval.yaml') % pattern
+            '--train_sample=10 --test_samples=10 specs/dr_blackbox_xval.yaml') % pattern
     cmd_tokens = cmd.split()
     result = subprocess.run(cmd_tokens, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     assert result.returncode == 0

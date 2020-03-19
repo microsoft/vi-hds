@@ -27,11 +27,10 @@ def main():
         xval_merge.add(split_idx, data_pair, val_results)
     xval_merge.finalize()
     xval_merge.save()
-    if args.no_figures is False:
-        xval_merge.make_writer(xval_merge.trainer.tb_log_dir)
-        xval_merge.prepare_treatment()
-        xval_merge.make_images(data)
-        xval_merge.close_writer()
+    xval_merge.make_writer(xval_merge.trainer.tb_log_dir)
+    xval_merge.prepare_treatment()
+    xval_merge.make_images(data)
+    xval_merge.close_writer()
     #xval_merge.load(xval_merge.trainer.tb_log_dir)
     print('Completed')
 
