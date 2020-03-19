@@ -225,7 +225,10 @@ class XvalMerge(object):
         for u in device_ids:
             print("- %s" % procdata.pretty_devices[u])
             device = procdata.device_names[u]
-            f5 = plotting.xval_fit_individual(self, u)
+            if self.separated_inputs is True:
+                f5 = plotting.xval_individual_2treatments(self, u)
+            else:
+                f5 = plotting.xval_individual(self, u)
             self.save_figs(f5, 'xval_individual_%s' % device)
             indivs.append(make_summary_image_op(f5, device, 'Device (Individual)'))                
             pp.close(f5)

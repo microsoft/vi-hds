@@ -326,19 +326,91 @@ def xval_fit_summary(res, device_id, separatedInputs=False):
 
     return f
 
-def xval_fit_individual(res, device_id):
+def gen_treatment_str(conditions, treatments, unit=None):
+    vstr_list = []
+    for k, v in zip(conditions, treatments):
+        val = np.exp(v) - 1.0
+        if (val > 0.0) & (val < 1.0):
+            vstr = '%s = %1.1f'%(k,val)
+        else:
+            vstr = '%s = %1.0f'%(k,val)
+        if unit is not None:
+            vstr = '%s %s'%(vstr,unit)
+        vstr_list.append(vstr)
+    return '\n'.join(vstr_list)
+
+def xval_individual(res, device_id):
     nplots = res.X_post_sample.shape[-1]
     colors = ['tab:gray','r','y','c']
     PREC = res.precisions
     STD = 1.0 / np.sqrt(PREC)
+    maxs = np.max(res.X_obs, axis=(0,1))
 
+    fs = 14
+    locs = np.where(res.devices == device_id)[0]
+    ids = np.argsort(res.ids[locs])
+    locs = locs[ids]
+    ntreatments = len(locs)
+    nrows = int(np.ceil(ntreatments / 2.0))
+    f = pp.figure(figsize=(12, 1.2*nrows))
+    for col in range(2):
+        left = 0.1+col*0.5
+        bottom = 0.4/nrows
+        width = 0.33/nplots
+        dx = 0.38/nplots
+        dy = (1-bottom)/nrows
+        height = 0.8*dy
+        for i in range(nrows):
+            loc = locs[i+col*nrows]
+            treatment_str = gen_treatment_str(res.conditions, res.treatments[loc])
+
+            for idx, maxi in enumerate(maxs):
+                ax = f.add_subplot(nrows, 2*nplots, col*nplots+(nrows-i-1)*2*nplots+idx+1)
+                ax.set_position([left+idx*dx, bottom+(nrows-i-1)*dy, width, height])
+
+                mu  = np.sum(res.importance_weights[loc,:,np.newaxis]*res.X_post_sample[loc, :, :, idx], 0)
+                var = np.sum(res.importance_weights[loc,:,np.newaxis]*(res.X_post_sample[loc, :, :, idx]**2 + STD[loc, :, :, idx]**2), 0) - mu**2
+                std = np.sqrt(var)
+
+                ax.fill_between(res.times, (mu-2*std)/maxi, (mu+2*std)/maxi, alpha=0.25, color=colors[idx])
+                ax.plot(res.times, res.X_obs[loc,:,idx]/maxi, 'k.', markersize=2)
+                ax.plot(res.times, mu/maxi, '-', lw=2, alpha=0.75, color=colors[idx])
+                ax.set_xlim(0.0,17)
+                ax.set_xticks([0,5,10,15])
+                ax.set_ylim(-0.2,1.2)
+                ax.tick_params(axis='both', which='major', labelsize=fs)
+
+                if i==0:
+                    pp.title(res.names[idx], fontsize=fs)
+                #if i<nrows-1:
+                ax.set_xticklabels([])
+                if idx==0:
+                    ax.set_ylabel(treatment_str,labelpad=25,fontsize=fs-2)
+                else:
+                    ax.set_yticklabels([])
+
+                sns.despine()
+
+        # Add labels
+        f.text(left-0.5*dx,0.5, "Normalized output", ha="center", va="center", rotation=90, fontsize=fs)
+        f.text(left+2*dx,0,"Time (h)", ha="center", va="bottom", fontsize=fs)
+
+    return f
+
+def xval_individual_2treatments(res, device_id):
+    nplots = res.X_post_sample.shape[-1]
+    colors = ['tab:gray','r','y','c']
+    PREC = res.precisions
+    STD = 1.0 / np.sqrt(PREC)
+    maxs = np.max(res.X_obs, axis=(0,1))
+    
     fs = 14
     both_locs = []
     for col in range(2):
-        all_locs = np.where((res.devices == device_id) & (res.treatments[:,1-col] > 0.0))[0]
-        indices = np.argsort(res.treatments[all_locs,1-col])
+        all_locs = np.where((res.devices == device_id) & (res.treatments[:,col] > 0.0))[0]
+        indices = np.argsort(res.treatments[all_locs,col])
         both_locs.append(all_locs[indices])
-
+    
     ntreatments = max(map(len,both_locs))
     f = pp.figure(figsize=(12, 1.5*ntreatments))
     for col,locs in enumerate(both_locs):
@@ -349,19 +421,10 @@ def xval_fit_individual(res, device_id):
         dy = (1-bottom)/ntreatments
         height = 0.8*dy
         for i,loc in enumerate(locs[:ntreatments]):
-            for idx in range(nplots):
-                C6  = np.exp(res.treatments[loc][1]) - 1.0
-                if (C6 > 0.0) & (C6 < 1.0):
-                    C6str = '%1.1f'%C6
-                else:
-                    C6str = '%1.0f'%C6
-                C12 = np.exp(res.treatments[loc][0]) - 1.0
-                if (C12 > 0.0) & (C12 < 1.0):
-                    C12str = '%1.1f'%C12
-                else:
-                    C12str = '%1.0f'%C12
-                treatment_str = 'C6 = %s nM\nC12 = %s nM'%(C6str,C12str)
+            #TODO(ndalchau): Incorporate units into conditions specification (here we assume nM)
+            treatment_str = gen_treatment_str(res.conditions, res.treatments[loc], unit='nM')
 
+            for idx, maxi in enumerate(maxs):
                 ax = f.add_subplot(ntreatments, 2*nplots, col*nplots+(ntreatments-i-1)*2*nplots+idx+1)
                 ax.set_position([left+idx*dx, bottom+(ntreatments-i-1)*dy, width, height])
 
@@ -369,9 +432,9 @@ def xval_fit_individual(res, device_id):
                 var = np.sum(res.importance_weights[loc,:,np.newaxis]*(res.X_post_sample[loc, :, :, idx]**2 + STD[loc, :, :, idx]**2), 0) - mu**2
                 std = np.sqrt(var)
 
-                ax.fill_between(res.times, mu-2*std, mu+2*std, alpha=0.25, color=colors[idx])
-                ax.plot(res.times, res.X_obs[loc,:,idx], 'k.', markersize=2)
-                ax.plot(res.times, mu, '-', lw=2, alpha=0.75, color=colors[idx])
+                ax.fill_between(res.times, (mu-2*std)/maxi, (mu+2*std)/maxi, alpha=0.25, color=colors[idx])
+                ax.plot(res.times, res.X_obs[loc,:,idx]/maxi, 'k.', markersize=2)
+                ax.plot(res.times, mu/maxi, '-', lw=2, alpha=0.75, color=colors[idx])
                 ax.set_xlim(0.0,17)
                 ax.set_xticks([0,5,10,15])
                 ax.set_ylim(-0.2,1.2)
