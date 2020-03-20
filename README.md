@@ -43,10 +43,10 @@ If you use this code or build upon it, please use the following (bibtex) citatio
     set INFERENCE_RESULTS_DIR=results
     ```
 
-2. Run the `dr_constant_xval` example by calling: 
+2. Run the `dr_constant_icml` example by calling: 
 
     ```bash
-    python src/run_vae_icml.py --yaml=specs/dr_constant_xval.yaml --experiment=EXAMPLE
+    python src/run_xval.py --experiment=EXAMPLE specs/dr_constant_xval.yaml 
     ```
 
 3. Run tensorboard to visualise the output. A folder will be created in your user-specified results directory with a name that combines the EXAMPLE name and a timestamp. E.g.
