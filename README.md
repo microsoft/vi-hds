@@ -31,7 +31,7 @@ If you use this code or build upon it, please use the following (bibtex) citatio
 
     In Linux:
     ```bash
-    export PYTHONPATH=.;src
+    export PYTHONPATH=.:src
     export INFERENCE_DATA_DIR=data
     export INFERENCE_RESULTS_DIR=results
     ```
