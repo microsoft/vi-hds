@@ -173,6 +173,12 @@ class Runner:
 
         # Create self.dataset_pair: DatasetPair containing train and val Datasets.
         self._prepare_data(data_settings)
+        # Specify whether the decoder should condition on device information
+        if self.procdata.device_depth > 1:
+            self.decoder_condition_on_device = True
+        else:
+            print("- Only a single device being considered, so disabling device-conditioning in the decoder")
+            self.decoder_condition_on_device = False
         # Number of instances to put in a training batch.
         self.n_batch = min(self.params_dict['n_batch'], self.dataset_pair.n_train)
 
@@ -207,7 +213,7 @@ class Runner:
 
         # DEFINE THE DECODER NN
         print("Set up decoder")
-        self.decoder = Decoder(self.params_dict, self.placeholders, self.dataset_pair.times, self.encoder)
+        self.decoder = Decoder(self.params_dict, self.placeholders, self.dataset_pair.times, self.encoder, condition_on_device=self.decoder_condition_on_device)
 
         # DEFINE THE OBJECTIVE and GRADIENTS
         # likelihood p (x | theta)
@@ -251,6 +257,7 @@ class Runner:
             self.decoder.x_post_sample,
             self.decoder.x_sample,
             self.objective.elbo,
+            self.objective.vae_cost,
             self.objective.precisions,
             self.encoder.theta.get_tensors(),
             self.encoder.q.get_tensors()])
@@ -299,7 +306,7 @@ class Runner:
         if plot:
             self._plot_prediction_summary_figure(self.dataset_pair.train, training_output, epoch, train_writer)
             self._plot_species_figure(self.dataset_pair.train, training_output, epoch, train_writer)
-        print(" | train (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(training_output.elbo, log_data.total_train_time / epoch, log_data.total_train_time), end='', flush=True)
+        print(" | train (vae-elbo = %0.4f, iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(-training_output.vae_cost, training_output.elbo, log_data.total_train_time / epoch, log_data.total_train_time), end='', flush=True)
         train_writer.flush()
         
         # Validation
@@ -311,7 +318,7 @@ class Runner:
             self._plot_prediction_summary_figure(self.dataset_pair.val, validation_output, epoch, valid_writer)
             self._plot_species_figure(self.dataset_pair.val, validation_output, epoch, valid_writer)
         log_data.total_test_time += time.time() - test_start
-        print(" | val (iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(validation_output.elbo, log_data.total_test_time / log_data.n_test, log_data.total_test_time))
+        print(" | val (vae-elbo = %0.4f, iwae-elbo = %0.4f, time = %0.2f, total = %0.2f)"%(-validation_output.vae_cost, validation_output.elbo, log_data.total_test_time / log_data.n_test, log_data.total_test_time))
         valid_writer.flush()
         
         if validation_output.elbo > log_data.max_val_elbo:
