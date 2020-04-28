@@ -24,7 +24,7 @@ class Decoder:
     '''
 
     def __init__(self, params: Dict[str, Any], placeholders: 'Placeholders', times: np.array,
-                 encoder: 'Encoder', plot_histograms=True):
+                 encoder: 'Encoder', condition_on_device=True, plot_histograms=True):
         ode_decoder = ODEDecoder(params)
         # List(str), e.g. ['OD', 'RFP', 'YFP', 'CFP', 'F510', 'F430', 'LuxR', 'LasR']
         self.names = ode_decoder.ode_model.species # list(str)
@@ -33,7 +33,7 @@ class Decoder:
         # self.device_conditioned: Dict[str,Tensor], keys e.g. 'aS', 'aR'.
         self.x_sample, self.x_post_sample = ode_decoder(
             placeholders.conds_obs, placeholders.dev_1hot, times, encoder.theta, encoder.clipped_theta,
-            condition_on_device=True)
+            condition_on_device)
 
 class Encoder:
     '''
@@ -100,16 +100,16 @@ class Encoder:
 class SessionVariables:
     """Convenience class to hold the output of one of the Session.run calls used in training."""
     def __init__(self, seq):
-        """seq: a sequence of 9 or 10 elements."""
-        n = 9
+        """seq: a sequence of 10 or 11 elements."""
+        n = 10
         assert len(seq) == n or len(seq) == (n+1)
         (self.log_normalized_iws, self.normalized_iws, self.normalized_iws_reshape,
-         self.x_post_sample, self.x_sample, self.elbo, self.precisions, self.theta_tensors, self.q_params) = seq[:n]
+         self.x_post_sample, self.x_sample, self.elbo, self.vae_cost, self.precisions, self.theta_tensors, self.q_params) = seq[:n]
         self.summaries = seq[n] if len(seq) == (n+1) else None
 
     def as_list(self):
         result = [self.log_normalized_iws, self.normalized_iws, self.normalized_iws_reshape,
-                  self.x_post_sample, self.x_sample, self.elbo, self.precisions, self.theta_tensors, self.q_params]
+                  self.x_post_sample, self.x_sample, self.elbo, self.vae_cost, self.precisions, self.theta_tensors, self.q_params]
         if self.summaries is not None:
             result.append(self.summaries)
         return result
