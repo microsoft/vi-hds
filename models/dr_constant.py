@@ -79,6 +79,10 @@ class DR_Constant(BaseModel):
             aR = theta.aR
             aS = theta.aS
 
+        # Constants for convenience
+        fracLuxR = ((KR6 * c6) ** nR + (KR12 * c12) ** nR) / ((1.0 + KR6 * c6 + KR12 * c12) ** nR)
+        fracLasR = ((KS6 * c6) ** nS + (KS12 * c12) ** nS) / ((1.0 + KS6 * c6 + KS12 * c12) ** nS)
+
         def reaction_equations(state, t):
             x, rfp, yfp, cfp, f510, f430, luxR, lasR = tf.unstack(state, axis=2)
 
@@ -90,8 +94,8 @@ class DR_Constant(BaseModel):
             gamma = gr * g
 
             # Promoter activity
-            boundLuxR = luxR * luxR  *  ((KR6 * c6) ** nR + (KR12 * c12) ** nR) / ((1.0 + KR6 * c6 + KR12 * c12) ** nR)
-            boundLasR = lasR * lasR  *  ((KS6 * c6) ** nS + (KS12 * c12) ** nS) / ((1.0 + KS6 * c6 + KS12 * c12) ** nS)
+            boundLuxR = luxR * luxR * fracLuxR
+            boundLasR = lasR * lasR * fracLasR
             P76 = (e76 + KGR_76 * boundLuxR + KGS_76 * boundLasR) / (1.0 + KGR_76 * boundLuxR + KGS_76 * boundLasR)
             P81 = (e81 + KGR_81 * boundLuxR + KGS_81 * boundLasR) / (1.0 + KGR_81 * boundLuxR + KGS_81 * boundLasR)
 
