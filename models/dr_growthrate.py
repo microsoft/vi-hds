@@ -4,6 +4,7 @@
 from src.utils import default_get_value, variable_summaries
 from models.dr_constant import DR_Constant
 import tensorflow as tf
+from tensorflow.compat.v1 import keras, verify_tensor_all_finite
 import numpy as np
 
 class DR_Growth( DR_Constant ):
@@ -49,7 +50,7 @@ class DR_Growth( DR_Constant ):
         # condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
         # currently, f is a one-layer MLP with NO activation function (e.g., offset and scale only) 
         if condition_on_device:
-            kinit = tf.keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
+            kinit = keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
             ones = tf.tile([[1.0]], tf.shape(theta.r))
             aR = self.device_conditioner(ones, 'aR', dev_1hot, kernel_initializer=kinit)
             aS = self.device_conditioner(ones, 'aS', dev_1hot, kernel_initializer=kinit)
@@ -82,8 +83,8 @@ class DR_Growth( DR_Constant ):
             #P81 = func(luxR, lasR, c6, c12)
 
             # Check they are finite
-            boundLuxR = tf.verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
-            boundLasR = tf.verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
+            boundLuxR = verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
+            boundLasR = verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
 
             # Right-hand sides
             d_x    = gamma*x
@@ -123,8 +124,8 @@ class DR_GrowthStudentT( DR_Growth ):
         # sum along the time dimension
         errors = tf.reduce_sum( tf.square( x_obs_ - x_predict ), 2 )
         
-        log_prob_constants = tf.lgamma(alpha_star) - tf.lgamma(self.alpha) -0.5*T*tf.log(2.0*np.pi*self.beta)
-        log_prob = log_prob_constants - alpha_star * tf.log( 1.0 + (0.5/self.beta) * errors )
+        log_prob_constants = tf.lgamma(alpha_star) - tf.lgamma(self.alpha) -0.5*T*tf.math.log(2.0*np.pi*self.beta)
+        log_prob = log_prob_constants - alpha_star * tf.math.log( 1.0 + (0.5/self.beta) * errors )
             
         self.precision_modes = alpha_star / (self.beta+0.5*errors)
         self.precision_list = tf.unstack( self.precision_modes, axis=-1 )

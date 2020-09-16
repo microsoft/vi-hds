@@ -3,9 +3,8 @@
 
 from models.base_model import BaseModel, log_prob_gaussian, NeuralPrecisions
 from src.utils import default_get_value, variable_summaries
-from tensorflow.keras.layers import Dense
-from tensorflow.keras import Sequential
 import tensorflow as tf
+from tensorflow.compat.v1 import keras, verify_tensor_all_finite
 import numpy as np
 import pdb
 
@@ -69,7 +68,7 @@ class DR_Constant(BaseModel):
         # condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
         # currently, f is a one-layer MLP with NO activation function (e.g., offset and scale only)
         if condition_on_device:
-            kinit = tf.keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
+            kinit = keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
             ones = tf.tile([[1.0]],tf.shape(theta.r))
             aR = self.device_conditioner(ones, 'aR', dev_1hot, kernel_initializer=kinit)
             aS = self.device_conditioner(ones, 'aS', dev_1hot, kernel_initializer=kinit)
@@ -100,8 +99,8 @@ class DR_Constant(BaseModel):
             P81 = (e81 + KGR_81 * boundLuxR + KGS_81 * boundLasR) / (1.0 + KGR_81 * boundLuxR + KGS_81 * boundLasR)
 
             # Check they are finite
-            boundLuxR = tf.verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
-            boundLasR = tf.verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
+            boundLuxR = verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
+            boundLasR = verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
 
             # Right-hand sides
             d_x = gamma * x
@@ -145,8 +144,8 @@ class DR_ConstantStudentT(DR_Constant):
         # sum along the time dimension
         errors = tf.reduce_sum(tf.square(x_obs_ - x_predict), 2)
 
-        log_prob_constants = tf.lgamma(alpha_star) - tf.lgamma(self.alpha) - 0.5 * T * tf.log(2.0 * np.pi * self.beta)
-        log_prob = log_prob_constants - alpha_star  *  tf.log(1.0 + (0.5 / self.beta)  *  errors)
+        log_prob_constants = tf.lgamma(alpha_star) - tf.lgamma(self.alpha) - 0.5 * T * tf.math.log(2.0 * np.pi * self.beta)
+        log_prob = log_prob_constants - alpha_star  *  tf.math.log(1.0 + (0.5 / self.beta)  *  errors)
 
         self.precision_modes = alpha_star / (self.beta + 0.5 * errors)
         self.precision_list = tf.unstack(self.precision_modes, axis=-1)
@@ -176,7 +175,7 @@ class DR_Constant_Precisions(DR_Constant):
     def expand_precisions_by_time( self, theta, x_predict, x_obs, x_sample ):
         var =  x_sample[:,:,:,-4:]
         prec = 1.0 / var
-        log_prec = tf.log(prec)
+        log_prec = tf.math.log(prec)
         return log_prec, prec
 
     def gen_reaction_equations(self, theta, treatments, dev_1hot, condition_on_device=True):
@@ -224,7 +223,7 @@ class DR_Constant_Precisions(DR_Constant):
         # condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
         # currently, f is a one-layer MLP with NO activation function (e.g., offset and scale only)
         if condition_on_device:
-            kinit = tf.keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
+            kinit = keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
             ones = tf.tile([[1.0]], tf.shape(theta.r))
             aR = self.device_conditioner(ones, 'aR', dev_1hot, kernel_initializer=kinit)
             aS = self.device_conditioner(ones, 'aS', dev_1hot, kernel_initializer=kinit)
@@ -256,8 +255,8 @@ class DR_Constant_Precisions(DR_Constant):
             P81 = (e81 + KGR_81 * boundLuxR + KGS_81 * boundLasR) / (1.0 + KGR_81 * boundLuxR + KGS_81 * boundLasR)
 
             # Check they are finite
-            boundLuxR = tf.verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
-            boundLasR = tf.verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
+            boundLuxR = verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
+            boundLasR = verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
 
             # Right-hand sides
             d_x = gamma * x

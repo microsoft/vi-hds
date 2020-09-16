@@ -9,6 +9,7 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from tensorflow.compat.v1 import placeholder, train, get_collection, GraphKeys
 
 # Local imports
 import procdata
@@ -136,7 +137,7 @@ class LocalAndGlobal:
 
     def create_placeholders(self, suffix):
         def as_placeholder(size, name):
-            return tf.placeholder(dtype=tf.float32, shape=(None, None, size), name=name)
+            return placeholder(dtype=tf.float32, shape=(None, None, size), name=name)
         return LocalAndGlobal(
             as_placeholder(self.loc, "local_" + suffix),
             as_placeholder(self.glob_cond, "global_cond_" + suffix),
@@ -171,11 +172,11 @@ class Objective:
             self.log_p_observations, encoder.log_p_theta, encoder.log_q_theta, beta=1.0)
         # [batch_size, num_iwae_samples]
         logsumexp_log_unnormalized_iws = tf.reduce_logsumexp(self.log_unnormalized_iws, axis=1, keepdims=True)
-        # w_logmeanexp = w_logsumexp - tf.log(tf.cast(args.train_samples, tf.float32))
+        # w_logmeanexp = w_logsumexp - tf.math.log(tf.cast(args.train_samples, tf.float32))
         self.vae_cost = -tf.reduce_mean(self.log_unnormalized_iws)
         # corresponds to `model_loss`
         iwae_cost = -tf.reduce_mean(logsumexp_log_unnormalized_iws -
-                                    tf.log(tf.cast(tf.shape(self.log_p_observations)[1],
+                                    tf.math.log(tf.cast(tf.shape(self.log_p_observations)[1],
                                                    tf.float32)))  # mean over batch
         self.elbo = -iwae_cost
         # log_ws:= log_unnormalized_important_weights
@@ -188,16 +189,16 @@ class Objective:
         #log_unnormalized_iws_reshape = tf.reshape(log_unnormalized_important_weights, shape=[-1])
 
 class Placeholders:
-    '''A convenience class of tf.placeholder tensors, associated with actual values on each batch of training.'''
+    '''A convenience class of placeholder tensors, associated with actual values on each batch of training.'''
     def __init__(self, data_pair, n_vals):
         # PLACEHOLDERS: represent stuff we must supply to the computational graph at each iteration,
         # e.g. batch of data or random numbers
         #: None means we can dynamically set this number (nbr of batch, nbr of IW samples)
-        self.x_obs = tf.placeholder(dtype=tf.float32, shape=(None, data_pair.n_time, data_pair.n_species), name='species')
-        self.dev_1hot = tf.placeholder(dtype=tf.float32, shape=(None, data_pair.depth), name='device_1hot')
-        self.conds_obs = tf.placeholder(dtype=tf.float32, shape=(None, data_pair.n_conditions), name='conditions')
+        self.x_obs = placeholder(dtype=tf.float32, shape=(None, data_pair.n_time, data_pair.n_species), name='species')
+        self.dev_1hot = placeholder(dtype=tf.float32, shape=(None, data_pair.depth), name='device_1hot')
+        self.conds_obs = placeholder(dtype=tf.float32, shape=(None, data_pair.n_conditions), name='conditions')
         # for beta VAE
-        self.beta = tf.placeholder(dtype=tf.float32, shape=(None), name='beta')
+        self.beta = placeholder(dtype=tf.float32, shape=(None), name='beta')
         u_vals = n_vals.create_placeholders("random_bits")
         self.u = tf.concat(u_vals.to_list(), axis=-1, name='u_local_global_stacked')
 
@@ -222,12 +223,12 @@ class TrainingStepper:
         self.tb_gradients = params_dict["tb_gradients"]
         boundaries = default_get_value(params_dict, "learning_boundaries", [1000, 2000, 5000])
         values = [float(f) for f in default_get_value(params_dict, "learning_rates", [1e-2, 1e-3, 1e-4, 2 * 1e-5])]
-        learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
+        learning_rate = train.piecewise_constant(global_step, boundaries, values)
         # Alternatives for opt_func, with momentum e.g. 0.50, 0.75
         #   momentum = default_get_value(params_dict, "momentum", 0.0)
-        #   opt_func = tf.train.MomentumOptimizer(learning_rate, momentum=momentum)
-        #   opt_func = tf.train.RMSPropOptimizer(learning_rate)
-        opt_func = tf.train.AdamOptimizer(learning_rate)
+        #   opt_func = train.MomentumOptimizer(learning_rate, momentum=momentum)
+        #   opt_func = train.RMSPropOptimizer(learning_rate)
+        opt_func = train.AdamOptimizer(learning_rate)
         self.train_step = self.build_train_step(dreg, encoder, objective, opt_func)
 
     @classmethod
@@ -249,7 +250,7 @@ class TrainingStepper:
         '''Returns a computation that is run in the tensorflow session.'''
         # This path is for b_use_correct_iwae_gradients = True. For False, we would just
         # want to return opt_func.minimize(objective.vae_cost)
-        trainable_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        trainable_params = get_collection(GraphKeys.TRAINABLE_VARIABLES)
         if dreg:
             grads = self.create_dreg_gradients(encoder, objective, trainable_params)
             print("Set up Doubly Reparameterized Gradient (dreg)")

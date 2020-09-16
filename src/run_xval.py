@@ -17,6 +17,7 @@ import matplotlib.pyplot as pp
 # Standard data science imports
 import numpy as np
 import tensorflow as tf
+from tensorflow.compat.v1 import summary, set_random_seed, global_variables_initializer
 
 # Local imports
 import procdata
@@ -91,7 +92,7 @@ class Runner:
         Currently (2019-01-14) it doesn't do that, and adding a call to random.seed(seed) doesn't help either."""
         seed = self.args.seed
         print("Setting: tf.set_random_seed({})".format(seed))
-        tf.set_random_seed(seed)
+        set_random_seed(seed)
         print("Setting: np.random.seed({})".format(seed))
         np.random.seed(seed)
 
@@ -233,21 +234,21 @@ class Runner:
         self_normed_iw = self.objective.normalized_iws[ts_to_vis, :]   # not in log space
         utils.variable_summaries(unnormed_iw, 'IWS_unn_log', plot_histograms)
         utils.variable_summaries(self_normed_iw, 'IWS_normed', plot_histograms)
-        tf.summary.scalar('IWS_normed/nonzeros', tf.count_nonzero(self_normed_iw))
+        summary.scalar('IWS_normed/nonzeros', tf.count_nonzero(self_normed_iw))
 
         with tf.name_scope('ELBO'):
-            tf.summary.scalar('elbo', self.objective.elbo)
+            summary.scalar('elbo', self.objective.elbo)
             # log(P) and also a per-species breakdown
             log_p = tf.reduce_mean(tf.reduce_logsumexp(self.objective.log_p_observations, axis=1))
-            tf.summary.scalar('log_p', log_p)  # [batch, 1]
+            summary.scalar('log_p', log_p)  # [batch, 1]
             for i,plot in enumerate(self.procdata.signals):
                 log_p_by_species = tf.reduce_mean(tf.reduce_logsumexp(self.objective.log_p_observations_by_species[:,:,i], axis=1))
-                tf.summary.scalar('log_p_'+plot, log_p_by_species)
+                summary.scalar('log_p_'+plot, log_p_by_species)
             # Priors
             logsumexp_log_p_theta = tf.reduce_logsumexp(self.encoder.log_p_theta, axis=1)
-            tf.summary.scalar('log_prior', tf.reduce_mean(logsumexp_log_p_theta))
+            summary.scalar('log_prior', tf.reduce_mean(logsumexp_log_p_theta))
             logsumexp_log_q_theta = tf.reduce_logsumexp(self.encoder.log_q_theta, axis=1)
-            tf.summary.scalar('loq_q', tf.reduce_mean(logsumexp_log_q_theta))
+            summary.scalar('loq_q', tf.reduce_mean(logsumexp_log_q_theta))
 
     def _create_session_variables(self):
         return SessionVariables([
@@ -346,11 +347,11 @@ class Runner:
         return beta_val
 
     def _run_session(self):
-        # tf.summary.scalar('ESS',  1.0 / np.sum(np.square(ws), 1))
-        merged = tf.summary.merge_all()
+        # summary.scalar('ESS',  1.0 / np.sum(np.square(ws), 1))
+        merged = summary.merge_all()
         held_out_name = self.args.heldout or '%d_of_%d' % (self.args.split, self.args.folds)
-        train_writer = tf.summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'train_%s' % held_out_name))
-        valid_writer = tf.summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'valid_%s' % held_out_name))
+        train_writer = summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'train_%s' % held_out_name))
+        valid_writer = summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'valid_%s' % held_out_name))
         eval_tensors = self._create_session_variables().as_list()
         saver = tf.train.Saver()
         print("----------------------------------------------")
@@ -359,7 +360,7 @@ class Runner:
         with tf.Session() as sess:
             self._fix_random_seed()  # <-- force run to be deterministic given random seed
             # initialize variables in the graph
-            sess.run(tf.global_variables_initializer())
+            sess.run(global_variables_initializer())
             log_data = TrainingLogData()
             print("===========================")
             if self.args.heldout:

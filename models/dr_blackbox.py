@@ -4,8 +4,7 @@
 from models.base_model import BaseModel, NeuralPrecisions
 from src.utils import default_get_value, variable_summaries
 import tensorflow as tf
-from tensorflow.keras.layers import Dense
-from tensorflow.keras import Sequential
+from tensorflow.compat.v1 import keras
 import numpy as np
 import pdb
 
@@ -93,8 +92,8 @@ class DR_BlackboxStudentT( DR_Blackbox ):
         # sum along the time dimension
         errors = tf.reduce_sum( tf.square( x_obs_ - x_predict ), 2 )
         
-        log_prob_constants = tf.lgamma(alpha_star) - tf.lgamma(self.alpha) -0.5*T*tf.log(2.0*np.pi*self.beta)
-        log_prob = log_prob_constants - alpha_star * tf.log( 1.0 + (0.5/self.beta) * errors )
+        log_prob_constants = tf.lgamma(alpha_star) - tf.lgamma(self.alpha) -0.5*T*tf.math.log(2.0*np.pi*self.beta)
+        log_prob = log_prob_constants - alpha_star * tf.math.log( 1.0 + (0.5/self.beta) * errors )
             
         self.precision_modes = alpha_star / (self.beta+0.5*errors)
         self.precision_list = tf.unstack( self.precision_modes, axis=-1 )
@@ -122,16 +121,16 @@ class DR_BlackboxPrecisions( DR_Blackbox ):
     def expand_precisions_by_time( self, theta, x_predict, x_obs, x_sample ):
         var =  x_sample[:,:,:,-4:]
         prec = 1.0 / var
-        log_prec = tf.log(prec)
+        log_prec = tf.math.log(prec)
         return log_prec, prec
 
     def initialize_neural_states(self, n):
         '''Neural states'''
-        inp = Dense(self.n_hidden, activation = tf.nn.relu, name="bb_hidden", input_shape=(n,))   #activation = tf.nn.tanh
-        act_layer = Dense(4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_act")
-        deg_layer = Dense(4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_deg")
-        act = Sequential([inp, act_layer])
-        deg = Sequential([inp, deg_layer])
+        inp = keras.layers.Dense(self.n_hidden, activation = tf.nn.relu, name="bb_hidden", input_shape=(n,))   #activation = tf.nn.tanh
+        act_layer = keras.layers.Dense(4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_act")
+        deg_layer = keras.layers.Dense(4+self.n_latent_species, activation = tf.nn.sigmoid, name="bb_deg")
+        act = keras.Sequential([inp, act_layer])
+        deg = keras.Sequential([inp, deg_layer])
         for layer in [inp, act_layer, deg_layer]:
             weights, bias = layer.weights
             variable_summaries(weights, layer.name + "_kernel", False)
@@ -212,7 +211,7 @@ class DR_HierarchicalBlackbox( DR_BlackboxPrecisions ):
                 Y.append( getattr(theta, nm ) )
             Y = tf.stack( Y, axis=2 )
             Y_reshaped = tf.reshape( Y, [n_batch*n_iwae, self.n_y])
-            offset_layer = Dense(self.n_y, activation=None, name="device_offsets")
+            offset_layer = keras.layers.Dense(self.n_y, activation=None, name="device_offsets")
             Y_reshaped = Y_reshaped + offset_layer( devices )
             Y = tf.reshape( Y_reshaped, [n_batch, n_iwae, self.n_y] )
 
