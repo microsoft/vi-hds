@@ -4,6 +4,8 @@
 import os
 import numpy as np
 import tensorflow as tf
+from tensorflow.compat.v1 import summary
+
 import procdata
 import plotting
 from utils import make_summary_image_op, Trainer
@@ -152,7 +154,7 @@ class XvalMerge(object):
     def make_writer(self, location=None):
         if location is None:
             location = self.trainer.tb_log_dir
-        self.xval_writer = tf.summary.FileWriter(os.path.join(location, 'xval'))
+        self.xval_writer = summary.FileWriter(os.path.join(location, 'xval'))
 
     def close_writer(self):
         self.xval_writer.close()

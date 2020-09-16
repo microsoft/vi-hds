@@ -7,6 +7,7 @@ import os
 import pdb
 import numpy as np
 import tensorflow as tf
+from tensorflow.compat.v1 import summary
 
 from utils import variable_summaries
 
@@ -758,8 +759,8 @@ class TfNormal(TfCrnDistribution):
             variable_summaries(self.prec, name + '.prec', plot_histograms)
         else:
             with tf.name_scope(name):
-                tf.summary.scalar('mu', tf.reduce_mean(self.mu))
-                tf.summary.scalar('prec', tf.reduce_mean(self.prec))
+                summary.scalar('mu', tf.reduce_mean(self.mu))
+                summary.scalar('prec', tf.reduce_mean(self.prec))
 
 
     def get_tensor_names(self, name):
