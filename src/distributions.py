@@ -741,8 +741,8 @@ class TfNormal(TfCrnDistribution):
         else:
             prec = self.prec
             mu = self.mu
-        return -LOG2PI + 0.5 * tf.log(prec + 1e-12) - 0.5 * prec * tf.square(mu - x)
-        #return -LOG2PI + 0.5*tf.log(self.prec + 1e-12) -0.5*self.prec*tf.square(self.mu-x)
+        return -LOG2PI + 0.5 * tf.math.log(prec + 1e-12) - 0.5 * prec * tf.square(mu - x)
+        #return -LOG2PI + 0.5*tf.math.log(self.prec + 1e-12) -0.5*self.prec*tf.square(self.mu-x)
 
     def __str__(self):
         s = "%s " % self.__class__
@@ -773,7 +773,7 @@ class TfLogNormal(TfNormal):
         return tf.exp(log_sample)
 
     def log_prob(self, x, stop_grad):
-        log_x = tf.log(x+1e-12)
+        log_x = tf.math.log(x+1e-12)
         return super(TfLogNormal, self).log_prob(log_x, stop_grad) - log_x
 
     def clip(self, x, stddevs=3):
@@ -821,7 +821,7 @@ class TfTruncatedNormal(TfNormal):
             self.PhiB = tf.cast(self.PhiB, tf.float32)
 
             self.Z = self.PhiB - self.PhiA
-            self.logZ = tf.log(self.Z)
+            self.logZ = tf.math.log(self.Z)
 
         # TODO: remove these guys
         self.nbr_params = 4
@@ -858,7 +858,7 @@ class TfTruncatedNormal(TfNormal):
         #     self.PhiB = 1.0
 
         self.Z = self.PhiB - self.PhiA
-        self.logZ = tf.log(self.Z)
+        self.logZ = tf.math.log(self.Z)
 
     def sample(self, u, stop_grad):
         raise NotImplementedError("Sample for TfTruncatedNormal hasn't been implemented with stop_grad argument yet ")
@@ -905,8 +905,8 @@ class TfKumaraswamy(TfCrnDistribution):
             self.b = b
             self.one_over_a = 1.0 / self.a
             self.one_over_b = 1.0 / self.b
-            self.log_a = tf.log(self.a)
-            self.log_b = tf.log(self.b)
+            self.log_a = tf.math.log(self.a)
+            self.log_b = tf.math.log(self.b)
 
             self.zmin = zmin # left boundary
             self.zmax = zmax # right boundary
@@ -923,8 +923,8 @@ class TfKumaraswamy(TfCrnDistribution):
         self.b = tf.clip_by_value(b, 0.0001, 1.0/0.0001)
         self.one_over_a = 1.0 / self.a
         self.one_over_b = 1.0 / self.b
-        self.log_a = tf.log(self.a)
-        self.log_b = tf.log(self.b)
+        self.log_a = tf.math.log(self.a)
+        self.log_b = tf.math.log(self.b)
         self.zmin = zmin # left boundary
         self.zmax = zmax # right boundary
         self.zrange = self.zmax-self.zmin

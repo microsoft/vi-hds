@@ -13,21 +13,21 @@ from utils import default_get_value, variable_summaries
 from procdata import ProcData
 
 def power(x, a):
-    return tf.exp(a * tf.log(x))
+    return tf.exp(a * tf.math.log(x))
 
 def log_prob_laplace(x_obs, x_post_sample, log_precisions, precisions):
-    log_p_x = tf.log(0.5) + log_precisions - precisions * tf.abs(x_post_sample - x_obs)
+    log_p_x = tf.math.log(0.5) + log_precisions - precisions * tf.abs(x_post_sample - x_obs)
     return log_p_x
 
 def log_prob_gaussian(x_obs, x_post_sample, log_precisions, precisions):
     # https://en.wikipedia.org/wiki/Normal_distribution
-    log_p_x = -0.5 * tf.log(2.0 * np.pi) + 0.5 * log_precisions - 0.5 * precisions * tf.square(x_post_sample - x_obs)
+    log_p_x = -0.5 * tf.math.log(2.0 * np.pi) + 0.5 * log_precisions - 0.5 * precisions * tf.square(x_post_sample - x_obs)
     return log_p_x
 
 def expand_constant_precisions(precision_list):
     # e.g.: precision_list = [theta.prec_x, theta.prec_fp, theta.prec_fp, theta.prec_fp ]
     precisions = tf.stack(precision_list, axis=-1)
-    log_precisions = tf.log(precisions)
+    log_precisions = tf.math.log(precisions)
     precisions = tf.expand_dims(precisions, 2)
     log_precisions = tf.expand_dims(log_precisions, 2)
     return log_precisions, precisions
@@ -125,7 +125,7 @@ class BaseModel(object):
             time_steps = x_obs.shape[1]
             lin_timesteps = tf.reshape(tf.linspace(1.0, time_steps.value, time_steps.value), [1, 1, time_steps, 1])
             prec = prec / lin_timesteps
-            log_prec = log_prec - tf.log(lin_timesteps)
+            log_prec = log_prec - tf.math.log(lin_timesteps)
         return log_prec, prec
 
     @classmethod

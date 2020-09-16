@@ -123,8 +123,8 @@ class DR_GrowthStudentT( DR_Growth ):
         # sum along the time dimension
         errors = tf.reduce_sum( tf.square( x_obs_ - x_predict ), 2 )
         
-        log_prob_constants = tf.lgamma(alpha_star) - tf.lgamma(self.alpha) -0.5*T*tf.log(2.0*np.pi*self.beta)
-        log_prob = log_prob_constants - alpha_star * tf.log( 1.0 + (0.5/self.beta) * errors )
+        log_prob_constants = tf.lgamma(alpha_star) - tf.lgamma(self.alpha) -0.5*T*tf.math.log(2.0*np.pi*self.beta)
+        log_prob = log_prob_constants - alpha_star * tf.math.log( 1.0 + (0.5/self.beta) * errors )
             
         self.precision_modes = alpha_star / (self.beta+0.5*errors)
         self.precision_list = tf.unstack( self.precision_modes, axis=-1 )

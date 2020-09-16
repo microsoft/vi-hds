@@ -172,11 +172,11 @@ class Objective:
             self.log_p_observations, encoder.log_p_theta, encoder.log_q_theta, beta=1.0)
         # [batch_size, num_iwae_samples]
         logsumexp_log_unnormalized_iws = tf.reduce_logsumexp(self.log_unnormalized_iws, axis=1, keepdims=True)
-        # w_logmeanexp = w_logsumexp - tf.log(tf.cast(args.train_samples, tf.float32))
+        # w_logmeanexp = w_logsumexp - tf.math.log(tf.cast(args.train_samples, tf.float32))
         self.vae_cost = -tf.reduce_mean(self.log_unnormalized_iws)
         # corresponds to `model_loss`
         iwae_cost = -tf.reduce_mean(logsumexp_log_unnormalized_iws -
-                                    tf.log(tf.cast(tf.shape(self.log_p_observations)[1],
+                                    tf.math.log(tf.cast(tf.shape(self.log_p_observations)[1],
                                                    tf.float32)))  # mean over batch
         self.elbo = -iwae_cost
         # log_ws:= log_unnormalized_important_weights
