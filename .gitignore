@@ -22,6 +22,9 @@ Cluster/.launcher
 ## Temporary files
 tmp*
 
+# Virtualenv
+env
+
 ## Miscellaneous
 results
 notebooks
