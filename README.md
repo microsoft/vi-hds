@@ -25,6 +25,8 @@ If you use this code or build upon it, please use the following (bibtex) citatio
 - [Pandas](https://pandas.pydata.org/), data analysis and data structures
 - [CUDA](https://developer.nvidia.com/cuda-zone), a parallel computing  framework. It's not essential, as the code can run (albeit, more slowly) in CPU mode.
 
+To install the python dependencies, you can use `pip` with the requirements.txt file. We have verified that VI-HDS runs on Tensorflow v1.13.1. For GPU support, you'll require CUDA v10.0.
+
 # Running an example
 
 1. Ensure the `src` directory is on your python path. Also, optionally, set the environment variables INFERENCE_DATA_DIR and INFERENCE_RESULTS_DIR to the directories to which data will be read and results will be written, and export it. By default, these are set to local paths "data" (built-in data files are stored here) and "results" (already in the .gitignore file) respectively.

@@ -1,0 +1,6 @@
+tensorflow-gpu==1.13.1
+tensorboard==1.13.1
+matplotlib
+pandas
+seaborn
+pyyaml
