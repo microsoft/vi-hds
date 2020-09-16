@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.compat.v1 import verify_tensor_all_finite
 from models.base_model import BaseModel
 
 class Debug_Constant(BaseModel):
@@ -29,26 +30,26 @@ class Debug_Constant(BaseModel):
         r = tf.clip_by_value(theta.r, 0.1, 2.0)
         
         def reaction_equations(state, t):
-            state = tf.verify_tensor_all_finite(state, "state NOT finite")
+            state = verify_tensor_all_finite(state, "state NOT finite")
             x, rfp, yfp, cfp = tf.unstack(state, axis=2)
-            x = tf.verify_tensor_all_finite(x, "x NOT finite")
-            rfp = tf.verify_tensor_all_finite(rfp, "rfp NOT finite")
-            yfp = tf.verify_tensor_all_finite(yfp, "yfp NOT finite")
-            cfp = tf.verify_tensor_all_finite(cfp, "cfp NOT finite")
+            x = verify_tensor_all_finite(x, "x NOT finite")
+            rfp = verify_tensor_all_finite(rfp, "rfp NOT finite")
+            yfp = verify_tensor_all_finite(yfp, "yfp NOT finite")
+            cfp = verify_tensor_all_finite(cfp, "cfp NOT finite")
 
             gamma = r * (1.0 - x)
-            gamma = tf.verify_tensor_all_finite(gamma, "gamma NOT finite")
+            gamma = verify_tensor_all_finite(gamma, "gamma NOT finite")
             # Right-hand sides
             d_x = x * gamma
-            #d_x = tf.verify_tensor_all_finite(d_x, "d_x NOT finite")
+            #d_x = verify_tensor_all_finite(d_x, "d_x NOT finite")
             d_rfp = 1.0 - (gamma + 1.0) * rfp
-            d_rfp = tf.verify_tensor_all_finite(d_rfp, "d_rfp NOT finite")
+            d_rfp = verify_tensor_all_finite(d_rfp, "d_rfp NOT finite")
             d_yfp = 1.0 - (gamma + 1.0) * yfp
-            d_yfp = tf.verify_tensor_all_finite(d_yfp, "d_yfp NOT finite")
+            d_yfp = verify_tensor_all_finite(d_yfp, "d_yfp NOT finite")
             d_cfp = 1.0 - (gamma + 1.0) * cfp
-            d_cfp = tf.verify_tensor_all_finite(d_cfp, "d_cfp NOT finite")
+            d_cfp = verify_tensor_all_finite(d_cfp, "d_cfp NOT finite")
 
             X = tf.stack([d_x, d_rfp, d_yfp, d_cfp], axis=2)
-            X = tf.verify_tensor_all_finite(X, "RHS NOT finite")
+            X = verify_tensor_all_finite(X, "RHS NOT finite")
             return X
         return reaction_equations

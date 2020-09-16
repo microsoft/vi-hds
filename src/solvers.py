@@ -2,11 +2,12 @@
 # Licensed under a Microsoft Research License.
 
 import tensorflow as tf
+from tensorflow.compat.v1 import verify_tensor_all_finite
 import numpy as np
 import pdb
 
 def modified_euler_integrate( d_states_d_t, init_state, times ):
-    init_state = tf.verify_tensor_all_finite(init_state, "init_state NOT finite")
+    init_state = verify_tensor_all_finite(init_state, "init_state NOT finite")
     x = [init_state]
     h = times[1]-times[0]
     F = [] 
@@ -57,7 +58,7 @@ def gen_odeint_while_conditions(T):
     return odeint_while_conditions
 
 def integrate_while( d_states_d_t, init_state, times, algorithm='modeuler' ):
-    init_state = tf.verify_tensor_all_finite(init_state, "init_state NOT finite")
+    init_state = verify_tensor_all_finite(init_state, "init_state NOT finite")
     x = tf.expand_dims( init_state, 0)  #[init_state]
     h = times[1]-times[0]
     T = len(times)
