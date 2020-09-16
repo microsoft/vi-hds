@@ -17,7 +17,7 @@ import matplotlib.pyplot as pp
 # Standard data science imports
 import numpy as np
 import tensorflow as tf
-from tensorflow.compat.v1 import summary
+from tensorflow.compat.v1 import summary, set_random_seed, global_variables_initializer
 
 # Local imports
 import procdata
@@ -92,7 +92,7 @@ class Runner:
         Currently (2019-01-14) it doesn't do that, and adding a call to random.seed(seed) doesn't help either."""
         seed = self.args.seed
         print("Setting: tf.set_random_seed({})".format(seed))
-        tf.set_random_seed(seed)
+        set_random_seed(seed)
         print("Setting: np.random.seed({})".format(seed))
         np.random.seed(seed)
 
@@ -360,7 +360,7 @@ class Runner:
         with tf.Session() as sess:
             self._fix_random_seed()  # <-- force run to be deterministic given random seed
             # initialize variables in the graph
-            sess.run(tf.global_variables_initializer())
+            sess.run(global_variables_initializer())
             log_data = TrainingLogData()
             print("===========================")
             if self.args.heldout:

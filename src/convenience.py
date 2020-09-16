@@ -9,7 +9,7 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow.compat.v1 import placeholder
+from tensorflow.compat.v1 import placeholder, train, get_collection, GraphKeys
 
 # Local imports
 import procdata
@@ -223,12 +223,12 @@ class TrainingStepper:
         self.tb_gradients = params_dict["tb_gradients"]
         boundaries = default_get_value(params_dict, "learning_boundaries", [1000, 2000, 5000])
         values = [float(f) for f in default_get_value(params_dict, "learning_rates", [1e-2, 1e-3, 1e-4, 2 * 1e-5])]
-        learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
+        learning_rate = train.piecewise_constant(global_step, boundaries, values)
         # Alternatives for opt_func, with momentum e.g. 0.50, 0.75
         #   momentum = default_get_value(params_dict, "momentum", 0.0)
-        #   opt_func = tf.train.MomentumOptimizer(learning_rate, momentum=momentum)
-        #   opt_func = tf.train.RMSPropOptimizer(learning_rate)
-        opt_func = tf.train.AdamOptimizer(learning_rate)
+        #   opt_func = train.MomentumOptimizer(learning_rate, momentum=momentum)
+        #   opt_func = train.RMSPropOptimizer(learning_rate)
+        opt_func = train.AdamOptimizer(learning_rate)
         self.train_step = self.build_train_step(dreg, encoder, objective, opt_func)
 
     @classmethod
@@ -250,7 +250,7 @@ class TrainingStepper:
         '''Returns a computation that is run in the tensorflow session.'''
         # This path is for b_use_correct_iwae_gradients = True. For False, we would just
         # want to return opt_func.minimize(objective.vae_cost)
-        trainable_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        trainable_params = get_collection(GraphKeys.TRAINABLE_VARIABLES)
         if dreg:
             grads = self.create_dreg_gradients(encoder, objective, trainable_params)
             print("Set up Doubly Reparameterized Gradient (dreg)")
