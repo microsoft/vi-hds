@@ -1,6 +1,6 @@
-tensorflow-gpu==1.15.2
+tensorflow-gpu==1.15.5
 tensorboard==1.15.0
-numpy==1.19.5
+numpy==1.18.5
 matplotlib
 pandas
 seaborn
