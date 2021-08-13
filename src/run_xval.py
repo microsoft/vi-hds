@@ -16,7 +16,7 @@ import matplotlib.pyplot as pp
 
 # Standard data science imports
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from tensorflow.compat.v1 import summary, set_random_seed, global_variables_initializer
 
 # Local imports
