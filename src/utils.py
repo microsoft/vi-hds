@@ -8,8 +8,7 @@ import re
 import shutil
 
 import yaml
-import tensorflow as tf
-from tensorflow.compat.v1 import summary
+import tensorflow.compat.v1 as tf # type: ignore
 
 def get_data_directory():
     """ 
@@ -41,12 +40,12 @@ def variable_summaries(var, name, plot_histograms=False):
     """ Attach summaries to a scalar node using Tensorboard """
     #print("- Attaching tensorboard summary for %s"%name)
     mean = tf.reduce_mean(var)
-    summary.scalar(name+'/mean', mean)
+    tf.summary.scalar(name+'/mean', mean)
     stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-    summary.scalar(name+'/stddev', stddev)
-    summary.scalar(name+'/max', tf.reduce_max(var))
-    summary.scalar(name+'/min', tf.reduce_min(var))
-    if plot_histograms: summary.histogram(name+'/histogram', var)
+    tf.summary.scalar(name+'/stddev', stddev)
+    tf.summary.scalar(name+'/max', tf.reduce_max(var))
+    tf.summary.scalar(name+'/min', tf.reduce_min(var))
+    if plot_histograms: tf.summary.histogram(name+'/histogram', var)
 
 def make_summary_image_op(fig, tag, scope, image_format='png'):
     buf = fig_to_byte_buffer(fig, image_format=image_format)
@@ -63,7 +62,8 @@ def load_config_file(filename):
     if filename is None:
         return None
     with open(filename, 'r') as stream:
-        return yaml.unsafe_load(stream)
+        #return yaml.unsafe_load(stream)
+        return yaml.safe_load(stream)
 
 def default_get_value(dct, key, default_value, verbose=False):
     if key in dct:

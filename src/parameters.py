@@ -2,8 +2,8 @@
 # Licensed under a Microsoft Research License.
 
 import numpy as np
-from distributions import TfKumaraswamy, TfLogNormal, TfNormal, TfTruncatedNormal, TfConstant
-from utils import default_get_value
+from .distributions import TfKumaraswamy, TfLogNormal, TfNormal, TfTruncatedNormal, TfConstant
+from .utils import default_get_value
 
 class DistributionDescription(object):
     def __init__(self, name, class_type, defaults):

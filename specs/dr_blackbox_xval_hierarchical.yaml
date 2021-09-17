@@ -13,7 +13,7 @@ data:
   separate_conditions: true
 
 params:
-  model: !!python/object:models.dr_blackbox.DR_HierarchicalBlackbox {}
+  model: dr_hierarchical_blackbox
   #theta_columns: ['x1','y1','z1','z2','z3'] #,'z6','z7','z8','z9','z10']
   theta_columns: ['x1','x2','y1','y2','z1','z2'] #,'z6','z7','z8','z9','z10']
 

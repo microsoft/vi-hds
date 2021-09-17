@@ -3,12 +3,11 @@
 
 import os
 import numpy as np
-import tensorflow as tf
-from tensorflow.compat.v1 import summary
+import tensorflow.compat.v1 as tf # type: ignore
 
-import procdata
-import plotting
-from utils import make_summary_image_op, Trainer
+from .plotting import ( plot_prediction_summary, xval_treatments, species_summary, xval_fit_summary, 
+    xval_global_parameters, xval_variable_parameters, xval_individual_2treatments, xval_individual)
+from .utils import make_summary_image_op, Trainer
 import matplotlib.pyplot as pp # pylint:disable=wrong-import-order
 
 class XvalMerge(object):
@@ -35,7 +34,7 @@ class XvalMerge(object):
         self.data_ids = []
         self.devices = []
         self.treatments = []
-        self.trainer = trainer = Trainer(args, add_timestamp=True)
+        self.trainer = Trainer(args, add_timestamp=True)
         self.X_obs = []
         # Attributes initialized elsewhere
         self.chunk_sizes = None
@@ -154,7 +153,7 @@ class XvalMerge(object):
     def make_writer(self, location=None):
         if location is None:
             location = self.trainer.tb_log_dir
-        self.xval_writer = summary.FileWriter(os.path.join(location, 'xval'))
+        self.xval_writer = tf.summary.FileWriter(os.path.join(location, 'xval'))
 
     def close_writer(self):
         self.xval_writer.close()
@@ -167,7 +166,7 @@ class XvalMerge(object):
         device_ids = list(range(len(procdata.device_names)))
         
         print("Making summary figure")
-        f1 = plotting.plot_prediction_summary(procdata, self.names, self.times, self.X_obs, self.X_post_sample,
+        f1 = plot_prediction_summary(procdata, self.names, self.times, self.X_obs, self.X_post_sample,
             self.precisions, self.devices, self.log_normalized_iws, '-')
         self.save_figs(f1,'xval_fit')
         plot_op1 = make_summary_image_op(f1, 'Summary', 'Summary')
@@ -177,7 +176,7 @@ class XvalMerge(object):
 
         if self.separated_inputs is True:
             print("Making treatment figure")
-            f2 = plotting.xval_treatments(self, procdata, device_ids)
+            f2 = xval_treatments(self, procdata, device_ids)
             self.save_figs(f2,'xval_treatments')
             plot_op2 = make_summary_image_op(f2, 'Treatment', 'Treatment')
             self.xval_writer.add_summary(tf.Summary(value=[plot_op2]), self.epoch)
@@ -185,7 +184,7 @@ class XvalMerge(object):
             self.xval_writer.flush()
 
         print("Making species figure")
-        f_species = plotting.species_summary(procdata, self.names, self.treatments, self.devices, self.times, self.X_sample, self.importance_weights, device_ids, fixYaxis = True)
+        f_species = species_summary(procdata, self.names, self.treatments, self.devices, self.times, self.X_sample, self.importance_weights, device_ids, fixYaxis = True)
         self.save_figs(f_species,'xval_species')
         plot_op_species = make_summary_image_op(f_species, 'Species', 'Species')
         self.xval_writer.add_summary(tf.Summary(value=[plot_op_species]), self.epoch)
@@ -193,7 +192,7 @@ class XvalMerge(object):
         self.xval_writer.flush()
 
         print("Making global parameters figure")
-        f_gparas = plotting.xval_global_parameters(self)
+        f_gparas = xval_global_parameters(self)
         if f_gparas is not None:
             self.save_figs(f_gparas,'xval_global_parameters')
             plot_op_gparas = make_summary_image_op(f_gparas, 'Parameters', 'Globals')
@@ -202,7 +201,7 @@ class XvalMerge(object):
             self.xval_writer.flush()
 
         print("Making variable parameters figure")
-        f_vparas = plotting.xval_variable_parameters(self)
+        f_vparas = xval_variable_parameters(self)
         if f_vparas is not None:
             self.save_figs(f_vparas,'xval_variable_parameters')
             plot_op_vparas = make_summary_image_op(f_vparas, 'Parameters', 'Variable')
@@ -215,7 +214,7 @@ class XvalMerge(object):
         for u in device_ids:
             print("- %s" % procdata.pretty_devices[u])
             device = procdata.device_names[u]
-            f4 = plotting.xval_fit_summary(self, u, separatedInputs=self.separated_inputs)
+            f4 = xval_fit_summary(self, u, separatedInputs=self.separated_inputs)
             self.save_figs(f4, 'xval_summary_%s' % device)
             summaries.append(make_summary_image_op(f4, device, 'Device (Summary)'))
             pp.close(f4)        
@@ -228,9 +227,9 @@ class XvalMerge(object):
             print("- %s" % procdata.pretty_devices[u])
             device = procdata.device_names[u]
             if self.separated_inputs is True:
-                f5 = plotting.xval_individual_2treatments(self, u)
+                f5 = xval_individual_2treatments(self, u)
             else:
-                f5 = plotting.xval_individual(self, u)
+                f5 = xval_individual(self, u)
             self.save_figs(f5, 'xval_individual_%s' % device)
             indivs.append(make_summary_image_op(f5, device, 'Device (Individual)'))                
             pp.close(f5)

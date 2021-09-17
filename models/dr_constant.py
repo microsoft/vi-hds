@@ -1,17 +1,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under a Microsoft Research License.
 
-from models.base_model import BaseModel, log_prob_gaussian, NeuralPrecisions
-from src.utils import default_get_value, variable_summaries
-import tensorflow as tf
-from tensorflow.compat.v1 import keras, verify_tensor_all_finite
 import numpy as np
-import pdb
+import tensorflow.compat.v1 as tf # type: ignore
+
+from models.base_model import BaseModel, NeuralPrecisions
+from src.utils import default_get_value, variable_summaries
 
 class DR_Constant(BaseModel):
 
-    def init_with_params(self, params, procdata):
-        super(DR_Constant, self).init_with_params(params, procdata)
+    def __init__(self, params, procdata):
+        super(DR_Constant, self).__init__(params, procdata)
         # do the other inits now
         self.use_aRFP = default_get_value(params, "use_aRFP", False)
         self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR']
@@ -68,7 +67,7 @@ class DR_Constant(BaseModel):
         # condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
         # currently, f is a one-layer MLP with NO activation function (e.g., offset and scale only)
         if condition_on_device:
-            kinit = keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
+            kinit = tf.keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
             ones = tf.tile([[1.0]],tf.shape(theta.r))
             aR = self.device_conditioner(ones, 'aR', dev_1hot, kernel_initializer=kinit)
             aS = self.device_conditioner(ones, 'aS', dev_1hot, kernel_initializer=kinit)
@@ -99,8 +98,8 @@ class DR_Constant(BaseModel):
             P81 = (e81 + KGR_81 * boundLuxR + KGS_81 * boundLasR) / (1.0 + KGR_81 * boundLuxR + KGS_81 * boundLasR)
 
             # Check they are finite
-            boundLuxR = verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
-            boundLasR = verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
+            boundLuxR = tf.verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
+            boundLasR = tf.verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
 
             # Right-hand sides
             d_x = gamma * x
@@ -122,8 +121,8 @@ class DR_Constant(BaseModel):
 
 class DR_ConstantStudentT(DR_Constant):
 
-    def init_with_params(self, params):
-        super(DR_ConstantStudentT, self).init_with_params(params)
+    def __init__(self, params, procdata):
+        super(DR_ConstantStudentT, self).__init__(params, procdata)
 
         # use a fixed gamma prior over precisions
         self.alpha = params['precision_alpha']
@@ -156,8 +155,8 @@ class DR_ConstantStudentT(DR_Constant):
 
 class DR_Constant_Precisions(DR_Constant):
 
-    def init_with_params(self, params, procdata):
-        super(DR_Constant_Precisions, self).init_with_params(params, procdata)
+    def __init__(self, params, procdata):
+        super(DR_Constant_Precisions, self)
 
         self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F510', 'F430', 'LuxR', 'LasR']
         self.init_prec = default_get_value(params, 'init_prec', 0.00001)
@@ -223,7 +222,7 @@ class DR_Constant_Precisions(DR_Constant):
         # condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
         # currently, f is a one-layer MLP with NO activation function (e.g., offset and scale only)
         if condition_on_device:
-            kinit = keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
+            kinit = tf.keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
             ones = tf.tile([[1.0]], tf.shape(theta.r))
             aR = self.device_conditioner(ones, 'aR', dev_1hot, kernel_initializer=kinit)
             aS = self.device_conditioner(ones, 'aS', dev_1hot, kernel_initializer=kinit)
@@ -255,8 +254,8 @@ class DR_Constant_Precisions(DR_Constant):
             P81 = (e81 + KGR_81 * boundLuxR + KGS_81 * boundLasR) / (1.0 + KGR_81 * boundLuxR + KGS_81 * boundLasR)
 
             # Check they are finite
-            boundLuxR = verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
-            boundLasR = verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
+            boundLuxR = tf.verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
+            boundLasR = tf.verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
 
             # Right-hand sides
             d_x = gamma * x

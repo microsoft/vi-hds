@@ -1,16 +1,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under a Microsoft Research License.
 
-import tensorflow as tf
-from tensorflow.keras.layers import Dense
-from tensorflow.keras import Sequential
-from tensorflow.keras.constraints import NonNeg
 import numpy as np
-import pdb
+import tensorflow.compat.v1 as tf # type: ignore
+import yaml
 
-from solvers import modified_euler_integrate, integrate_while
-from utils import default_get_value, variable_summaries
-from procdata import ProcData
+from src.solvers import modified_euler_integrate, integrate_while
+from src.utils import default_get_value, variable_summaries
+from src.procdata import ProcData
 
 def power(x, a):
     return tf.exp(a * tf.math.log(x))
@@ -35,13 +32,9 @@ def expand_constant_precisions(precision_list):
 def expand_decayed_precisions(precision_list): # pylint: disable=unused-argument
     raise NotImplementedError("TODO: expand_decayed_precisions")
 
-class BaseModel(object):
-    # We need an init_with_params method separate from the usual __init__, because the latter is
-    # called automatically with no arguments by pyyaml on creation, and we need a way to feed
-    # params (from elsewhere in the YAML structure) into it. It would really be better construct
-    # it properly after the structure has been loaded.
+class BaseModel:
     # pylint: disable=attribute-defined-outside-init
-    def init_with_params(self, params, procdata : ProcData):
+    def __init__(self, params, procdata : ProcData):
         self.params = params
         self.relevance = procdata.relevance_vectors
         self.default_devices = procdata.default_devices
@@ -150,11 +143,11 @@ class NeuralPrecisions(object):
         self.nspecies = nspecies
         if inputs is None:
             inputs = self.nspecies+1
-        inp = Dense(n_hidden_precisions, activation = hidden_activation, use_bias=True, name = "prec_hidden", input_shape=(inputs,))
-        act_layer = Dense(4, activation = tf.nn.sigmoid, name = "prec_act", bias_constraint = NonNeg())
-        deg_layer = Dense(4, activation = tf.nn.sigmoid, name = "prec_deg", bias_constraint = NonNeg())
-        self.act = Sequential([inp, act_layer])
-        self.deg = Sequential([inp, deg_layer])
+        inp = tf.keras.layers.Dense(n_hidden_precisions, activation = hidden_activation, use_bias=True, name = "prec_hidden", input_shape=(inputs,))
+        act_layer = tf.keras.layers.Dense(4, activation = tf.nn.sigmoid, name = "prec_act", bias_constraint = tf.keras.constraints.NonNeg())
+        deg_layer = tf.keras.layers.Dense(4, activation = tf.nn.sigmoid, name = "prec_deg", bias_constraint = tf.keras.constraints.NonNeg())
+        self.act = tf.keras.Sequential([inp, act_layer])
+        self.deg = tf.keras.Sequential([inp, deg_layer])
 
         for layer in [inp, act_layer, deg_layer]:
             weights, bias = layer.weights

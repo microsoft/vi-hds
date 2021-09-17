@@ -3,15 +3,14 @@
 
 from models.base_model import BaseModel, NeuralPrecisions
 from src.utils import default_get_value, variable_summaries
-import tensorflow as tf
-from tensorflow.compat.v1 import keras
+import tensorflow.compat.v1 as tf   # type: ignore
+from tensorflow import keras
 import numpy as np
-import pdb
 
 class DR_Blackbox( BaseModel ):
     
-    def init_with_params( self, params, procdata ):
-        super(DR_Blackbox, self).init_with_params( params, procdata )
+    def __init__( self, params, procdata ):
+        super(DR_Blackbox, self).__init__( params, procdata )
         self.species = ['OD', 'RFP', 'YFP', 'CFP']
         self.nspecies = 4
         # do the other inits now
@@ -69,8 +68,8 @@ class DR_Blackbox( BaseModel ):
 
 class DR_BlackboxStudentT( DR_Blackbox ):
     
-    def init_with_params( self, params, procdata ):
-        super(DR_BlackboxStudentT, self).init_with_params( params, procdata )
+    def __init__( self, params, procdata ):
+        super(DR_BlackboxStudentT, self).__init__( params, procdata )
         
         # use a fixed gamma prior over precisions
         self.alpha = params['precision_alpha']
@@ -103,8 +102,8 @@ class DR_BlackboxStudentT( DR_Blackbox ):
         return log_prob
     
 class DR_BlackboxPrecisions( DR_Blackbox ):
-    def init_with_params( self, params, procdata ):
-        super(DR_BlackboxPrecisions, self).init_with_params( params, procdata )
+    def __init__( self, params, procdata ):
+        super(DR_BlackboxPrecisions, self).__init__( params, procdata )
         self.init_prec = params['init_prec']
         self.n_hidden_precisions = params['n_hidden_decoder_precisions']
         self.n_states = 4 + self.n_latent_species + 4
@@ -178,8 +177,8 @@ class DR_BlackboxPrecisions( DR_Blackbox ):
 
 class DR_HierarchicalBlackbox( DR_BlackboxPrecisions ):
     
-    def init_with_params( self, params, procdata ):
-        super(DR_HierarchicalBlackbox, self).init_with_params( params, procdata )
+    def __init__( self, params, procdata ):
+        super(DR_HierarchicalBlackbox, self).__init__( params, procdata )
         # do the other inits now
         self.n_x = params['n_x']
         self.n_y = params['n_y']

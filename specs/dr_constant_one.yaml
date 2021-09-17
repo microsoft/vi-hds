@@ -10,7 +10,7 @@ data:
   separate_conditions: True
   
 params:
-  model: !!python/object:models.dr_constant.DR_Constant {}
+  model: dr_constant
   learning_boundaries: [250,1000]
   learning_rates: [0.002,0.0004,0.00008]
   #solver: modeulerwhile

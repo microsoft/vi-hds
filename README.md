@@ -33,14 +33,14 @@ To install the python dependencies, you can use `pip` with the requirements.txt 
 
     In Linux:
     ```bash
-    export PYTHONPATH=.:src
+    export PYTHONPATH=.
     export INFERENCE_DATA_DIR=data
     export INFERENCE_RESULTS_DIR=results
     ```
 
     In Windows:
     ```dos
-    set PYTHONPATH=.;src
+    set PYTHONPATH=.
     set INFERENCE_DATA_DIR=data
     set INFERENCE_RESULTS_DIR=results
     ```

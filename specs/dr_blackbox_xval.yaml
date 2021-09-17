@@ -13,7 +13,7 @@ data:
   separate_conditions: true
 
 params:
-  model: !!python/object:models.dr_blackbox.DR_BlackboxPrecisions {}
+  model: dr_blackbox_precisions
   theta_columns: ['z1','z2','z3','z4','z5'] #,'z6','z7','z8','z9','z10']
   n_z: 5
   n_latent_species: 2

@@ -16,7 +16,7 @@ data:
   separate_conditions: true
 
 params:
-  model: !!python/object:models.dr_growthrate.DR_Growth {}
+  model: dr_growthrate
   learning_boundaries: [250,1000]
   learning_rates: [0.01,0.002,0.0002]
 

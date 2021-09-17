@@ -1,13 +1,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under a Microsoft Research License.
 
-import tensorflow as tf
-static_rnn = tf.nn.static_rnn
+import tensorflow.compat.v1 as tf # type: ignore
 
 class ODEDecoder(object):
-    def __init__(self, params):
+    def __init__(self, params, ode_model):
         self.solver = params["solver"]
-        self.ode_model = params["model"]
+        self.ode_model = ode_model
 
     def __call__(self, conds_obs, dev_1hot, times, thetas, clipped_thetas, condition_on_device):
         x_sample, _f_sample = self.ode_model.simulate(

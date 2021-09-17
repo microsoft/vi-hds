@@ -34,6 +34,8 @@ def pre_test(pattern, num_folds):
     assert sys.version_info[0] == 3, 'This test will only run on Python 3'
     results_dir = tempfile.mkdtemp()
     os.environ['INFERENCE_RESULTS_DIR'] = results_dir
+    # Switch off the GPU
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     if num_folds > 1:
         cmd = ('python src/%s.py --folds=%d --experiment=TEST --epochs=2 --test_epoch=1 '
             '--train_sample=3 --test_samples=3 specs/dr_blackbox_xval.yaml') % (pattern, num_folds)
@@ -42,7 +44,10 @@ def pre_test(pattern, num_folds):
             '--train_sample=10 --test_samples=10 specs/dr_blackbox_xval.yaml') % pattern
     cmd_tokens = cmd.split()
     result = subprocess.run(cmd_tokens, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    if result.returncode != 0:
+        print(result.stderr)
     assert result.returncode == 0
+
     elbo_list = []
     for line in result.stdout.split('\n'):
         print(line)
@@ -89,9 +94,9 @@ def post_test(example_dir):
         assert len(matches) > 0, 'Cannot find file matching *_*_*.%s in %s' % (suffix, example_dir)
 
 
-def test_run_xval_icml():
+def test_run_xval():
     '''
-    Tests that a relatively quick (1 minute or so) call of run_xval_icml.py, with two test epochs,
+    Tests that a relatively quick (1 minute or so) call of run_xval.py, with two test epochs,
     has a higher validation ELBO on the second test epoch than the first.
     '''
     pre_test('run_xval', 1)
@@ -103,3 +108,7 @@ def test_folds2():
     '''
     example_dir = pre_test('call_run_xval', 2)
     post_test(example_dir)
+
+if __name__ == "__main__":
+    test_run_xval()
+    # test_folds2()

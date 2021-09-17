@@ -1,10 +1,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under a Microsoft Research License.
 
-from src.utils import default_get_value, variable_summaries
+from src.utils import variable_summaries
 from models.dr_constant import DR_Constant
-import tensorflow as tf
-from tensorflow.compat.v1 import keras, verify_tensor_all_finite
+import tensorflow.compat.v1 as tf # type: ignore
 import numpy as np
 
 class DR_Growth( DR_Constant ):
@@ -50,7 +49,7 @@ class DR_Growth( DR_Constant ):
         # condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
         # currently, f is a one-layer MLP with NO activation function (e.g., offset and scale only) 
         if condition_on_device:
-            kinit = keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
+            kinit = tf.keras.initializers.RandomNormal(mean=2.0, stddev=1.5)
             ones = tf.tile([[1.0]], tf.shape(theta.r))
             aR = self.device_conditioner(ones, 'aR', dev_1hot, kernel_initializer=kinit)
             aS = self.device_conditioner(ones, 'aS', dev_1hot, kernel_initializer=kinit)
@@ -83,8 +82,8 @@ class DR_Growth( DR_Constant ):
             #P81 = func(luxR, lasR, c6, c12)
 
             # Check they are finite
-            boundLuxR = verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
-            boundLasR = verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
+            boundLuxR = tf.verify_tensor_all_finite(boundLuxR, "boundLuxR NOT finite")
+            boundLasR = tf.verify_tensor_all_finite(boundLasR, "boundLasR NOT finite")
 
             # Right-hand sides
             d_x    = gamma*x
@@ -102,8 +101,8 @@ class DR_Growth( DR_Constant ):
 
 class DR_GrowthStudentT( DR_Growth ):
     
-    def init_with_params( self, params ):
-        super(DR_GrowthStudentT, self).init_with_params( params )
+    def __init__( self, params ):
+        super(DR_GrowthStudentT, self).__init__( params )
         
         # use a fixed gamma prior over precisions
         self.alpha = params['precision_alpha']

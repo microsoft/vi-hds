@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import argparse
 import os
 import time
-from typing import Any, Dict, List
+from typing import Dict
 
 # Special imports for matplotlib because of "use" call
  # pylint: disable=wrong-import-order,wrong-import-position
@@ -16,16 +16,16 @@ import matplotlib.pyplot as pp
 
 # Standard data science imports
 import numpy as np
-import tensorflow.compat.v1 as tf
-from tensorflow.compat.v1 import summary, set_random_seed, global_variables_initializer
+import tensorflow.compat.v1 as tf # type: ignore
 
 # Local imports
-import procdata
-from parameters import Parameters
-from plotting import plot_prediction_summary, xval_treatments, plot_weighted_theta, species_summary
-from convenience import Decoder, Encoder, SessionVariables, LocalAndGlobal, Objective, Placeholders, TrainingLogData, TrainingStepper
-from xval import XvalMerge
-import utils
+import models
+import src.procdata as procdata
+from src.parameters import Parameters
+from src.plotting import plot_prediction_summary, plot_weighted_theta, species_summary
+from src.convenience import Decoder, Encoder, SessionVariables, LocalAndGlobal, Objective, Placeholders, TrainingLogData, TrainingStepper
+from src.xval import XvalMerge
+import src.utils as utils
 
 class Runner:
     """A class to set up, train and evaluate a variation CRN model, holding out one fold 
@@ -92,7 +92,7 @@ class Runner:
         Currently (2019-01-14) it doesn't do that, and adding a call to random.seed(seed) doesn't help either."""
         seed = self.args.seed
         print("Setting: tf.set_random_seed({})".format(seed))
-        set_random_seed(seed)
+        tf.set_random_seed(seed)
         print("Setting: np.random.seed({})".format(seed))
         np.random.seed(seed)
 
@@ -183,10 +183,10 @@ class Runner:
         # Number of instances to put in a training batch.
         self.n_batch = min(self.params_dict['n_batch'], self.dataset_pair.n_train)
 
-        # This is already a model object because of the use of "!!python/object:... in the yaml file.
-        model = self.params_dict["model"]
+        # Look up which model class to use
+        model_class = models.LOOKUP[self.params_dict["model"]]
         # Set various attributes of the model
-        model.init_with_params(self.params_dict, self.procdata)
+        ode_model = model_class(self.params_dict, self.procdata)
         
         # Import priors from YAML
         parameters = Parameters()
@@ -214,12 +214,12 @@ class Runner:
 
         # DEFINE THE DECODER NN
         print("Set up decoder")
-        self.decoder = Decoder(self.params_dict, self.placeholders, self.dataset_pair.times, self.encoder, condition_on_device=self.decoder_condition_on_device)
+        self.decoder = Decoder(self.params_dict, ode_model, self.placeholders, self.dataset_pair.times, self.encoder, condition_on_device=self.decoder_condition_on_device)
 
         # DEFINE THE OBJECTIVE and GRADIENTS
         # likelihood p (x | theta)
         print("Set up objective")
-        self.objective = Objective(self.encoder, self.decoder, model, self.placeholders)
+        self.objective = Objective(self.encoder, self.decoder, ode_model, self.placeholders)
 
         # SET-UP tensorflow LEARNING/OPTIMIZER
         self.training_stepper = TrainingStepper(self.args.dreg, self.encoder, self.objective, self.params_dict)
@@ -234,21 +234,21 @@ class Runner:
         self_normed_iw = self.objective.normalized_iws[ts_to_vis, :]   # not in log space
         utils.variable_summaries(unnormed_iw, 'IWS_unn_log', plot_histograms)
         utils.variable_summaries(self_normed_iw, 'IWS_normed', plot_histograms)
-        summary.scalar('IWS_normed/nonzeros', tf.count_nonzero(self_normed_iw))
+        tf.summary.scalar('IWS_normed/nonzeros', tf.count_nonzero(self_normed_iw))
 
         with tf.name_scope('ELBO'):
-            summary.scalar('elbo', self.objective.elbo)
+            tf.summary.scalar('elbo', self.objective.elbo)
             # log(P) and also a per-species breakdown
             log_p = tf.reduce_mean(tf.reduce_logsumexp(self.objective.log_p_observations, axis=1))
-            summary.scalar('log_p', log_p)  # [batch, 1]
+            tf.summary.scalar('log_p', log_p)  # [batch, 1]
             for i,plot in enumerate(self.procdata.signals):
                 log_p_by_species = tf.reduce_mean(tf.reduce_logsumexp(self.objective.log_p_observations_by_species[:,:,i], axis=1))
-                summary.scalar('log_p_'+plot, log_p_by_species)
+                tf.summary.scalar('log_p_'+plot, log_p_by_species)
             # Priors
             logsumexp_log_p_theta = tf.reduce_logsumexp(self.encoder.log_p_theta, axis=1)
-            summary.scalar('log_prior', tf.reduce_mean(logsumexp_log_p_theta))
+            tf.summary.scalar('log_prior', tf.reduce_mean(logsumexp_log_p_theta))
             logsumexp_log_q_theta = tf.reduce_logsumexp(self.encoder.log_q_theta, axis=1)
-            summary.scalar('loq_q', tf.reduce_mean(logsumexp_log_q_theta))
+            tf.summary.scalar('loq_q', tf.reduce_mean(logsumexp_log_q_theta))
 
     def _create_session_variables(self):
         return SessionVariables([
@@ -293,7 +293,7 @@ class Runner:
         pp.close(theta_fig)
         pp.close('all')
 
-    def _evaluate_elbo_and_plot(self, beta_val, epoch, eval_tensors, log_data, merged, sess, train_writer, valid_writer, saver):
+    def _evaluate_elbo_and_plot(self, epoch, eval_tensors, log_data, merged, sess, train_writer, valid_writer, saver):
         print("epoch %4d"%epoch, end='', flush=True)
         log_data.n_test += 1
         test_start = time.time()
@@ -348,10 +348,10 @@ class Runner:
 
     def _run_session(self):
         # summary.scalar('ESS',  1.0 / np.sum(np.square(ws), 1))
-        merged = summary.merge_all()
+        merged = tf.summary.merge_all()
         held_out_name = self.args.heldout or '%d_of_%d' % (self.args.split, self.args.folds)
-        train_writer = summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'train_%s' % held_out_name))
-        valid_writer = summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'valid_%s' % held_out_name))
+        train_writer = tf.summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'train_%s' % held_out_name))
+        valid_writer = tf.summary.FileWriter(os.path.join(self.trainer.tb_log_dir, 'valid_%s' % held_out_name))
         eval_tensors = self._create_session_variables().as_list()
         saver = tf.train.Saver()
         print("----------------------------------------------")
@@ -360,7 +360,7 @@ class Runner:
         with tf.Session() as sess:
             self._fix_random_seed()  # <-- force run to be deterministic given random seed
             # initialize variables in the graph
-            sess.run(global_variables_initializer())
+            sess.run(tf.global_variables_initializer())
             log_data = TrainingLogData()
             print("===========================")
             if self.args.heldout:
@@ -376,7 +376,7 @@ class Runner:
                 log_data.total_train_time += time.time() - epoch_start
                 # occasionally evaluation ELBO on train and val, using more IW samples
                 if np.mod(epoch, self.args.test_epoch) == 0:
-                    self._evaluate_elbo_and_plot(beta, epoch, eval_tensors, log_data, merged, sess, train_writer, 
+                    self._evaluate_elbo_and_plot(epoch, eval_tensors, log_data, merged, sess, train_writer, 
                         valid_writer, saver)
             train_writer.close()
             valid_writer.close()

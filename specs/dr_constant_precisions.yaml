@@ -16,7 +16,7 @@ data:
   separate_conditions: true
   
 params:
-  model: !!python/object:models.dr_constant.DR_Constant_Precisions {}
+  model: dr_constant_precisions
   theta_columns: ['aYFP','aCFP','aR','aS','r','K']
   lambda_l2: 0.001
   lambda_l2_hidden: 0.001

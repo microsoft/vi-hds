@@ -3,9 +3,7 @@
 
 from __future__ import absolute_import
 
-import os
 import procdata
-import numpy as np
 from src.run_xval import run_on_split, create_parser
 from src.xval import XvalMerge
 import src.utils as utils

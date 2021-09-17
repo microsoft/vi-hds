@@ -6,7 +6,6 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as pp
 import matplotlib.cm as cmx
-import pdb
 import numpy as np
 import pandas as pd
 import src.utils as utils
@@ -240,7 +239,7 @@ def xval_treatments(res, data, devices):
             std = np.sqrt(np.sum(device_IW*(device_PREDICT[j]**2 + device_STD[j]**2 ), 1) - mu**2)
             for ci, cvalues in enumerate(input_values):
                 ax.errorbar( cvalues, mu, yerr=std, fmt=pred_mk, ms=ms, lw=1, mec=edges[ci], color=colors[ci], zorder=ci)
-                ax.semilogx( cvalues, device_OBS[j], 'k'+obs_mk, ms=ms, lw=1, color=edges[ci], zorder=ci+20)
+                ax.semilogx( cvalues, device_OBS[j], obs_mk, ms=ms, lw=1, color=edges[ci], zorder=ci+20)
             ax.set_ylim(-0.1,1.1)
             ax.tick_params(axis='both', which='major', labelsize=fs)
             ax.set_xticks(np.logspace(0,4,3))
@@ -567,7 +566,10 @@ def xval_variable_parameters(res, ncols=2):
                 name = ps[j+i*ncols]
                 for di in devices:
                     locs = np.where(res.devices == di)
-                    ax.errorbar(res.ids[locs], qs['%s.mu'%name][locs], 1 / qs['%s.prec'%name][locs], fmt='.', color=cdict[di])
+                    x = res.ids[locs]
+                    y_mu = qs['%s.mu'%name][locs]
+                    y_err = np.squeeze(1 / qs['%s.prec'%name][locs])
+                    ax.errorbar(x, y_mu, y_err, fmt='.', color=cdict[di])
                     ax.set_title(name)
                 if i == (nrows-1):
                     ax.set_xlabel('Data instance')

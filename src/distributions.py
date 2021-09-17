@@ -3,13 +3,10 @@
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-import os
-import pdb
 import numpy as np
-import tensorflow as tf
-from tensorflow.compat.v1 import summary
+import tensorflow.compat.v1 as tf # type: ignore
 
-from utils import variable_summaries
+from .utils import variable_summaries
 
 SQRT2 = np.sqrt(2.0)
 LOG2PI = np.log(2 * np.pi)
@@ -522,8 +519,6 @@ class ChainedDistribution(object):
                 distribution.fill_slots(self.slot_dependencies[name], samples)
                 assert distribution.slots_are_pending() is False, "STILL pending slot for %s"%name
 
-            if name == "dummy":
-                pdb.set_trace()
             theta = distribution.sample(list_of_u[:, :, idx], stop_grad)
             samples.add(name, theta)
         return samples
@@ -759,8 +754,8 @@ class TfNormal(TfCrnDistribution):
             variable_summaries(self.prec, name + '.prec', plot_histograms)
         else:
             with tf.name_scope(name):
-                summary.scalar('mu', tf.reduce_mean(self.mu))
-                summary.scalar('prec', tf.reduce_mean(self.prec))
+                tf.summary.scalar('mu', tf.reduce_mean(self.mu))
+                tf.summary.scalar('prec', tf.reduce_mean(self.prec))
 
 
     def get_tensor_names(self, name):

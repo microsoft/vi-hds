@@ -13,7 +13,7 @@ data:
   conditions: ["C6","C12"]
   
 params:
-  model: !!python/object:models.debug.Debug_Constant {}
+  model: debug {}
 
   constant:
     init_x: 0.002

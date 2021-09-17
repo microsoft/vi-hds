@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under a Microsoft Research License.
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf # type: ignore
 import numpy as np
 
 def xavier_init(fan_in, fan_out, constant=1):

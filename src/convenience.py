@@ -2,31 +2,29 @@
 # Licensed under a Microsoft Research License.
 
 from __future__ import absolute_import
-from typing import Any, Dict, List, Optional
-from collections import OrderedDict
+from typing import Any, Dict
 
 # Standard data science imports
 import numpy as np
-import pandas as pd
-import tensorflow as tf
-from tensorflow.compat.v1 import placeholder, train, get_collection, GraphKeys
+import tensorflow.compat.v1 as tf # type: ignore
 
 # Local imports
-import procdata
-import encoders
-from decoders import ODEDecoder
-import distributions as ds
-from vi import GeneralLogImportanceWeights
-from utils import default_get_value, variable_summaries
+from .encoders import ConditionalEncoder
+from .decoders import ODEDecoder
+from .distributions import ( build_p_local, build_p_global_cond, build_p_global, build_p_constant, 
+    build_q_local, build_q_global_cond, build_q_global, build_q_constant, ChainedDistribution )
+from .parameters import Parameters
+from .vi import GeneralLogImportanceWeights
+from .utils import default_get_value, variable_summaries
 
 class Decoder:
     '''
     Decoder network
     '''
 
-    def __init__(self, params: Dict[str, Any], placeholders: 'Placeholders', times: np.array,
+    def __init__(self, params: Dict[str, Any], ode_model, placeholders: 'Placeholders', times: np.array,
                  encoder: 'Encoder', condition_on_device=True, plot_histograms=True):
-        ode_decoder = ODEDecoder(params)
+        ode_decoder = ODEDecoder(params, ode_model)
         # List(str), e.g. ['OD', 'RFP', 'YFP', 'CFP', 'F510', 'F430', 'LuxR', 'LasR']
         self.names = ode_decoder.ode_model.species # list(str)
         # self.x_sample: Tensor of float32, shape e.g. (?, ?, ?, 8)
@@ -67,11 +65,11 @@ class Encoder:
         """Returns a ChainedDistribution"""
         p_vals = LocalAndGlobal(
             # prior: local: may have some dependencies in theta (in hierarchy, local, etc)
-            ds.build_p_local(parameters, verbose, self.theta),
-            ds.build_p_global_cond(parameters, verbose, self.theta),
+            build_p_local(parameters, verbose, self.theta),
+            build_p_global_cond(parameters, verbose, self.theta),
             # prior: global should be fully defined in parameters
-            ds.build_p_global(parameters, verbose, self.theta),
-            ds.build_p_constant(parameters, verbose, self.theta))
+            build_p_global(parameters, verbose, self.theta),
+            build_p_constant(parameters, verbose, self.theta))
         if verbose:
             p_vals.diagnostic_printout('P')
         return p_vals.concat("p")
@@ -79,19 +77,19 @@ class Encoder:
     @classmethod
     def set_up_q(self, verbose, parameters, placeholders, x_delta_obs):
         # Constants
-        q_constant = ds.build_q_constant(parameters, verbose)
+        q_constant = build_q_constant(parameters, verbose)
         # q: global, device-dependent distributions
-        q_global_cond = ds.build_q_global_cond(parameters, placeholders.dev_1hot, placeholders.conds_obs, verbose, plot_histograms=parameters.params_dict["plot_histograms"])
+        q_global_cond = build_q_global_cond(parameters, placeholders.dev_1hot, placeholders.conds_obs, verbose, plot_histograms=parameters.params_dict["plot_histograms"])
         # q: global, independent distributions
-        q_global = ds.build_q_global(parameters, verbose)
+        q_global = build_q_global(parameters, verbose)
         # q: local, based on amortized neural network
         if len(parameters.l.list_of_params) > 0:
-            encode = encoders.ConditionalEncoder(parameters.params_dict)
+            encode = ConditionalEncoder(parameters.params_dict)
             approx_posterior_params = encode(x_delta_obs)
-            q_local = ds.build_q_local(parameters, approx_posterior_params, placeholders.dev_1hot, placeholders.conds_obs, verbose,
+            q_local = build_q_local(parameters, approx_posterior_params, placeholders.dev_1hot, placeholders.conds_obs, verbose,
                         kernel_regularizer=tf.keras.regularizers.l2(0.01))
         else:
-            q_local = ds.ChainedDistribution(name="q_local")
+            q_local = ChainedDistribution(name="q_local")
         q_vals = LocalAndGlobal(q_local, q_global_cond, q_global, q_constant)
         if verbose:
             q_vals.diagnostic_printout('Q')
@@ -137,7 +135,7 @@ class LocalAndGlobal:
 
     def create_placeholders(self, suffix):
         def as_placeholder(size, name):
-            return placeholder(dtype=tf.float32, shape=(None, None, size), name=name)
+            return tf.placeholder(dtype=tf.float32, shape=(None, None, size), name=name)
         return LocalAndGlobal(
             as_placeholder(self.loc, "local_" + suffix),
             as_placeholder(self.glob_cond, "global_cond_" + suffix),
@@ -146,7 +144,7 @@ class LocalAndGlobal:
 
     def concat(self, name,):
         """Returns a concatenation of the items."""
-        concatenated = ds.ChainedDistribution(name=name)
+        concatenated = ChainedDistribution(name=name)
         for chained in self.to_list():
             for item_name, distribution in chained.distributions.items():
                 concatenated.add_distribution(item_name, distribution, chained.slot_dependencies[item_name])
@@ -194,11 +192,11 @@ class Placeholders:
         # PLACEHOLDERS: represent stuff we must supply to the computational graph at each iteration,
         # e.g. batch of data or random numbers
         #: None means we can dynamically set this number (nbr of batch, nbr of IW samples)
-        self.x_obs = placeholder(dtype=tf.float32, shape=(None, data_pair.n_time, data_pair.n_species), name='species')
-        self.dev_1hot = placeholder(dtype=tf.float32, shape=(None, data_pair.depth), name='device_1hot')
-        self.conds_obs = placeholder(dtype=tf.float32, shape=(None, data_pair.n_conditions), name='conditions')
+        self.x_obs = tf.placeholder(dtype=tf.float32, shape=(None, data_pair.n_time, data_pair.n_species), name='species')
+        self.dev_1hot = tf.placeholder(dtype=tf.float32, shape=(None, data_pair.depth), name='device_1hot')
+        self.conds_obs = tf.placeholder(dtype=tf.float32, shape=(None, data_pair.n_conditions), name='conditions')
         # for beta VAE
-        self.beta = placeholder(dtype=tf.float32, shape=(None), name='beta')
+        self.beta = tf.placeholder(dtype=tf.float32, shape=(None), name='beta')
         u_vals = n_vals.create_placeholders("random_bits")
         self.u = tf.concat(u_vals.to_list(), axis=-1, name='u_local_global_stacked')
 
@@ -223,12 +221,12 @@ class TrainingStepper:
         self.tb_gradients = params_dict["tb_gradients"]
         boundaries = default_get_value(params_dict, "learning_boundaries", [1000, 2000, 5000])
         values = [float(f) for f in default_get_value(params_dict, "learning_rates", [1e-2, 1e-3, 1e-4, 2 * 1e-5])]
-        learning_rate = train.piecewise_constant(global_step, boundaries, values)
+        learning_rate = tf.train.piecewise_constant(global_step, boundaries, values)
         # Alternatives for opt_func, with momentum e.g. 0.50, 0.75
         #   momentum = default_get_value(params_dict, "momentum", 0.0)
         #   opt_func = train.MomentumOptimizer(learning_rate, momentum=momentum)
         #   opt_func = train.RMSPropOptimizer(learning_rate)
-        opt_func = train.AdamOptimizer(learning_rate)
+        opt_func = tf.train.AdamOptimizer(learning_rate)
         self.train_step = self.build_train_step(dreg, encoder, objective, opt_func)
 
     @classmethod
@@ -250,7 +248,7 @@ class TrainingStepper:
         '''Returns a computation that is run in the tensorflow session.'''
         # This path is for b_use_correct_iwae_gradients = True. For False, we would just
         # want to return opt_func.minimize(objective.vae_cost)
-        trainable_params = get_collection(GraphKeys.TRAINABLE_VARIABLES)
+        trainable_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         if dreg:
             grads = self.create_dreg_gradients(encoder, objective, trainable_params)
             print("Set up Doubly Reparameterized Gradient (dreg)")

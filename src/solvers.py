@@ -1,10 +1,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under a Microsoft Research License.
 
-import tensorflow as tf
-from tensorflow.compat.v1 import verify_tensor_all_finite
+import tensorflow.compat.v1 as tf
+from tensorflow import verify_tensor_all_finite
 import numpy as np
-import pdb
 
 def modified_euler_integrate( d_states_d_t, init_state, times ):
     init_state = verify_tensor_all_finite(init_state, "init_state NOT finite")

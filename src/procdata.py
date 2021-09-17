@@ -3,7 +3,7 @@
 
 import os
 
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict
 from functools import reduce
 from typing import Any, Dict, List
 
