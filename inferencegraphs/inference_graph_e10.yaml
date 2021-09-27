@@ -1,0 +1,60 @@
+nodes:
+  auto: {spec: "specs/auto_constant_precisions.yaml", experiment: "auto_prec", seed: 0, train_samples: 20, test_samples: 20, epochs: 10, test_epoch: 5, plot_epoch: 5}
+  prpr: {spec: "specs/prpr_constant_precisions.yaml", experiment: "prpr_prec", seed: 0, train_samples: 20, test_samples: 20, epochs: 10, test_epoch: 5, plot_epoch: 5}
+  dr: {spec: "specs/dr_constant_precisions.yaml", experiment: "dr_prec", seed: 0, train_samples: 20, test_samples: 20, epochs: 10, test_epoch: 5, plot_epoch: 5}
+  relay: {spec: "specs/relay_constant_precisions.yaml", experiment: "relay_prec", seed: 0, train_samples: 20, test_samples: 20, epochs: 10, test_epoch: 5, plot_epoch: 5}
+  inducer: {spec: "specs/inducer_constant_precisions.yaml", experiment: "inducer_prec", seed: 0, train_samples: 20, test_samples: 20, epochs: 10, test_epoch: 5, plot_epoch: 5}
+  degrader: {spec: "specs/degrader_constant_precisions.yaml", experiment: "degrader_prec", seed: 0, train_samples: 20, test_samples: 20, epochs: 10, test_epoch: 5, plot_epoch: 5}
+edges:
+# Auto -> PRPR
+  - {from: {node: auto, parameter: a480}, to: {node: prpr, parameter: a480}}
+  - {from: {node: auto, parameter: a530}, to: {node: prpr, parameter: a530}}
+  - {from: {node: auto, parameter: drfp}, to: {node: prpr, parameter: drfp}}
+# PRPR -> DR
+  - {from: {node: prpr, parameter: drfp}, to: {node: dr, parameter: drfp}}
+  - {from: {node: prpr, parameter: dcfp}, to: {node: dr, parameter: dcfp}}
+  - {from: {node: prpr, parameter: dyfp}, to: {node: dr, parameter: dyfp}}
+# PRPR -> Inducer
+  - {from: {node: prpr, parameter: drfp}, to: {node: inducer, parameter: drfp}}
+  - {from: {node: prpr, parameter: dcfp}, to: {node: inducer, parameter: dcfp}}
+  - {from: {node: prpr, parameter: dyfp}, to: {node: inducer, parameter: dyfp}}
+# Inducer -> Degrader  
+  - {from: {node: inducer, parameter: nA}, to: {node: degrader, parameter: nA}}
+  - {from: {node: inducer, parameter: eA}, to: {node: degrader, parameter: eA}}
+  - {from: {node: inducer, parameter: KAra}, to: {node: degrader, parameter: KAra}}
+# DR -> Relay
+  - {from: {node: dr, parameter: drfp}, to: {node: relay, parameter: drfp}}
+  - {from: {node: dr, parameter: KR6}, to: {node: relay, parameter: KR6}}
+  - {from: {node: dr, parameter: KR12}, to: {node: relay, parameter: KR12}}
+  - {from: {node: dr, parameter: KS6}, to: {node: relay, parameter: KS6}}
+  - {from: {node: dr, parameter: KS12}, to: {node: relay, parameter: KS12}}
+  - {from: {node: dr, parameter: KGR_76}, to: {node: relay, parameter: KGR_76}}
+  - {from: {node: dr, parameter: KGS_76}, to: {node: relay, parameter: KGS_76}}
+  - {from: {node: dr, parameter: KGR_81}, to: {node: relay, parameter: KGR_81}}
+  - {from: {node: dr, parameter: KGS_81}, to: {node: relay, parameter: KGS_81}}
+  - {from: {node: dr, parameter: nR}, to: {node: relay, parameter: nR}}
+  - {from: {node: dr, parameter: nS}, to: {node: relay, parameter: nS}}
+  - {from: {node: dr, parameter: aR}, to: {node: relay, parameter: aR}}
+  - {from: {node: dr, parameter: aS}, to: {node: relay, parameter: aS}}
+  - {from: {node: dr, parameter: e76}, to: {node: relay, parameter: e76}}
+  - {from: {node: dr, parameter: e81}, to: {node: relay, parameter: e81}}
+  - {from: {node: dr, parameter: aYFP}, to: {node: relay, parameter: aYFP}}
+  - {from: {node: dr, parameter: aCFP}, to: {node: relay, parameter: aCFP}}
+# DR -> Degrader
+  - {from: {node: dr, parameter: drfp}, to: {node: degrader, parameter: drfp}}
+  - {from: {node: dr, parameter: KR6}, to: {node: degrader, parameter: KR6}}
+  - {from: {node: dr, parameter: KR12}, to: {node: degrader, parameter: KR12}}
+  - {from: {node: dr, parameter: KS6}, to: {node: degrader, parameter: KS6}}
+  - {from: {node: dr, parameter: KS12}, to: {node: degrader, parameter: KS12}}
+  - {from: {node: dr, parameter: KGR_76}, to: {node: degrader, parameter: KGR_76}}
+  - {from: {node: dr, parameter: KGS_76}, to: {node: degrader, parameter: KGS_76}}
+  - {from: {node: dr, parameter: KGR_81}, to: {node: degrader, parameter: KGR_81}}
+  - {from: {node: dr, parameter: KGS_81}, to: {node: degrader, parameter: KGS_81}}
+  - {from: {node: dr, parameter: nR}, to: {node: degrader, parameter: nR}}
+  - {from: {node: dr, parameter: nS}, to: {node: degrader, parameter: nS}}
+  - {from: {node: dr, parameter: aR}, to: {node: degrader, parameter: aR}}
+  - {from: {node: dr, parameter: aS}, to: {node: degrader, parameter: aS}}
+  - {from: {node: dr, parameter: e76}, to: {node: degrader, parameter: e76}}
+  - {from: {node: dr, parameter: e81}, to: {node: degrader, parameter: e81}}
+  - {from: {node: dr, parameter: aYFP}, to: {node: degrader, parameter: aYFP}}
+  - {from: {node: dr, parameter: aCFP}, to: {node: degrader, parameter: aCFP}}
