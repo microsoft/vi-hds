@@ -1,8 +1,8 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 import os
-import yaml
 import torch
 import numpy as np
 
@@ -100,16 +100,18 @@ class Results:
 
     def dump(self, location=".vihds_cache"):
         os.makedirs(location, exist_ok=True)
-        # String lists
+
         def savetxt(base, data):
+            '''Save data as string lists'''
             np.savetxt(
                 os.path.join(location, base + ".csv"), np.array(data, dtype=str), delimiter=",", fmt="%s",
             )
 
         savetxt("species_names", self.species_names)
         savetxt("q_names", self.q_names)
-        # Numpy arrays
+
         def save(base, data):
+            '''Save data as numpy arrays'''
             np.save(os.path.join(location, base + ".npy"), data)
 
         # save('times', self.times)
@@ -127,14 +129,16 @@ class Results:
         # save('precisions', self.precisions)
 
     def load(self, location=".vihds_cache"):
-        # String lists
+
         def loadtxt(base):
+            '''Load data as string lists'''
             return np.loadtxt(os.path.join(location, base + ".csv"), dtype=str, delimiter=",")
 
         self.species_names = loadtxt("species_names")
         self.q_names = loadtxt("q_names")
-        # Numpy arrays
+
         def load(base):
+            '''Load numpy arrays'''
             return np.load(os.path.join(location, base + ".npy"), allow_pickle=True)
 
         # self.times = load('times')

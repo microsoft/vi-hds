@@ -22,7 +22,8 @@ class DR_Blackbox_RHS(OdeFunc):
         self.states = states
 
         # Pass in a class instance for dynamic (neural) precisions. If None, then it is expected that you have
-        # latent variables for the precisions, as these will be assigned as part of BaseModel.expand_precisions_by_time()
+        # latent variables for the precisions, as these will be assigned as part of
+        # BaseModel.expand_precisions_by_time()
         self.precisions = precisions
 
         self.n_batch = theta.get_n_batch()
@@ -42,7 +43,7 @@ class DR_Blackbox_RHS(OdeFunc):
             latent_list.append(getattr(theta, "x%d" % (i + 1)))
         latents = torch.stack(latent_list, dim=-1)
 
-        # Read global conditionals, then store all the constants concatenated together, ready to be sent to neural components
+        # Read global conditionals, then store constants concatenated together, ready for neural components
         n_y = config.params.n_y
         if n_y > 0:
             # Y = torch.stack([getattr(theta, "y%d"%(i+1)) for i in range(n_y)], dim=-1) + offset_layer(devices)
@@ -83,8 +84,8 @@ class DR_Blackbox(OdeModel):
         self.neural_states = NeuralStates(n, config.params.n_hidden_decoder, self.n_states, n_latents)
 
     def condition_theta(self, theta, dev_1hot, writer, epoch):
-        """Condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device"""
-        n_batch = theta.get_n_batch()
+        """Condition on device information by mapping param_cond = f(param, d; phi) where d is one-hot rep of device"""
+        # n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
         devices = dev_1hot.unsqueeze(1).repeat([1, n_iwae, 1])
         offset = self.offset_layer(devices)

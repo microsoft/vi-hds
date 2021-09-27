@@ -1,10 +1,8 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
-import torch
+# ------------------------------------
 from torch import nn
-import numpy as np
-from typing import Any, Dict, List, Optional
 import models
 
 # pylint: disable=no-member

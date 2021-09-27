@@ -1,6 +1,7 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 from vihds.ode import OdeModel, OdeFunc
 from vihds.precisions import ConstantPrecisions, NeuralPrecisions
 import torch
@@ -12,8 +13,8 @@ class Auto_Constant_RHS(OdeFunc):
     def __init__(self, config, theta, treatments, dev_1hot, precisions=None, version=1):
         super(Auto_Constant_RHS, self).__init__(config, theta, treatments, dev_1hot)
 
-        # Pass in a class instance for dynamic (neural) precisions. If None, then it is expected that you have
-        # latent variables for the precisions, as these will be assigned as part of BaseModel.expand_precisions_by_time()
+        # Pass in a class instance for dynamic (neural) precisions. If None, then it's expected that you have latent
+        # variables for the precisions, assigned as part of BaseModel.expand_precisions_by_time()
         self.precisions = precisions
 
         self.n_batch = theta.get_n_batch()
@@ -22,7 +23,7 @@ class Auto_Constant_RHS(OdeFunc):
 
         # tile treatments, one per iwae sample
 
-        ## TODO -> NN growth model for ethanol?
+        # TODO: NN growth model for ethanol?
         # treatments_transformed = torch.clamp(torch.exp(treatments) - 1.0, 1e-12, 1e6)
         # c6a, c12a = torch.unbind(treatments_transformed, axis=1)
         # c6 = torch.transpose(c6a.repeat([self.n_iwae, 1]),0,1)

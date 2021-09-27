@@ -4,14 +4,13 @@
 # ------------------------------------
 import os
 import tempfile
-import cProfile, pstats, io
+import cProfile
+import pstats
+import io
 from pstats import SortKey
 
-import torch
-from torch.utils.data import DataLoader
-from vihds.datasets import build_datasets
 from vihds.run_xval import create_parser, run_on_split
-from vihds.config import Config, locate_yml, Trainer
+from vihds.config import Config, Trainer
 
 if __name__ == "__main__":
 

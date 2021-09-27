@@ -1,12 +1,10 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 from vihds.ode import OdeModel, OdeFunc, power
 from vihds.precisions import ConstantPrecisions, NeuralPrecisions
-from vihds.utils import default_get_value, variable_summaries
 import torch
-import numpy as np
-import pdb
 
 # pylint: disable = no-member, not-callable
 
@@ -17,8 +15,8 @@ class Inducer_Constant_RHS(OdeFunc):
     ):
         super(Inducer_Constant_RHS, self).__init__(config, theta, treatments, dev_1hot, condition_on_device)
 
-        # Pass in a class instance for dynamic (neural) precisions. If None, then it is expected that you have
-        # latent variables for the precisions, as these will be assigned as part of BaseModel.expand_precisions_by_time()
+        # Pass in a class instance for dynamic (neural) precisions. If None, then it's expected that you have latent
+        # variables for the precisions, as these will be assigned as part of BaseModel.expand_precisions_by_time()
         self.precisions = precisions
 
         self.n_batch = theta.get_n_batch()
@@ -27,9 +25,9 @@ class Inducer_Constant_RHS(OdeFunc):
 
         # tile treatments, one per iwae sample
         Ara = torch.clamp(torch.exp(treatments) - 1.0, 1e-12, 1e6)
-        ## c6a, c12a = torch.unbind(treatments_transformed, axis=1)
-        ## c6 = torch.transpose(c6a.repeat([self.n_iwae, 1]),0,1)
-        ## c12 = torch.transpose(c12a.repeat([self.n_iwae, 1]),0,1)
+        # c6a, c12a = torch.unbind(treatments_transformed, axis=1)
+        # c6 = torch.transpose(c6a.repeat([self.n_iwae, 1]),0,1)
+        # c12 = torch.transpose(c12a.repeat([self.n_iwae, 1]),0,1)
 
         # need to clip these to avoid overflow
         self.r = torch.clamp(theta.r, 0.0, 4.0)

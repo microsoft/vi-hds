@@ -1,9 +1,9 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 import os
 import numpy as np
-import matplotlib.pyplot as pp
 from torch.utils.tensorboard import SummaryWriter
 from vihds import plotting
 
@@ -84,12 +84,13 @@ class XvalMerge(object):
         self.chunk_sizes = np.array([len(ids) for ids in self.data_ids], dtype=object)
         self.ids = np.hstack(self.data_ids)
 
-    # def prepare(self):
-    #     # Importance-weighted means and stds over time
-    #     importance_weights = self.normalized_iws[:, :, np.newaxis, np.newaxis]
-    #     self.iw_predict_mu  = np.sum(importance_weights * self.X_predict, 1)
-    #     self.iw_predict_std = np.sqrt(np.sum(importance_weights * (self.X_predict**2 + 1.0 / self.precisions), 1) - self.iw_predict_mu**2)
-    #     self.iw_states      = np.sum(importance_weights * self.X_states, 1)
+    def prepare(self):
+        '''Importance-weighted means and stds over time'''
+        importance_weights = self.normalized_iws[:, :, np.newaxis, np.newaxis]
+        self.iw_predict_mu = np.sum(importance_weights * self.X_predict, 1)
+        self.iw_predict_std = np.sqrt(np.sum(importance_weights * (self.X_predict**2 + 1.0 / self.precisions), 1)
+                                      - self.iw_predict_mu**2)
+        self.iw_states = np.sum(importance_weights * self.X_states, 1)
 
     def save(self):
         location = self.trainer.tb_log_dir
@@ -243,7 +244,7 @@ class XvalMerge(object):
             print("- %s" % self.settings.pretty_devices[u])
             device = self.settings.devices[u]
             if self.settings.separate_conditions is True:
-                ## TODO -> Add check to see if there is just 1 treatment? 2treatments function fails when there is just 1 treatment
+                # TODO: Check just 1 treatment? 2treatments function fails when there is just 1 treatment
                 f_indiv_i = plotting.xval_individual_2treatments(self, u)
             else:
                 f_indiv_i = plotting.xval_individual(self, u)

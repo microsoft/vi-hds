@@ -1,8 +1,8 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 import os
-
 from collections import OrderedDict
 from typing import List
 
@@ -131,10 +131,10 @@ def load(csv_file, settings):
             and then for each of EYFP, ECFP, mRFP1 and OD, 100 readings at different times
             and then second line is "timesall": time of each col except for the first 5
     Returns:
-        devices 
-        treatments 
-        times 
-        observations 
+        devices
+        treatments
+        times
+        observations
     """
 
     data_path = os.path.join(settings.data_dir, csv_file)
@@ -151,7 +151,7 @@ def load(csv_file, settings):
     # and float values.
     treatment_values = [process_condition(cond) for cond in rows.iloc[:, 4]]
     # print(treatment_values)
-    if len(treatment_values) is 0:
+    if len(treatment_values) == 0:
         return None  # flag value to indicate the dataset doesn't exist in this file
 
     # As treatment_values, but each OrderedDict additionally has the keys that the others have, with value 0.0.

@@ -150,7 +150,9 @@ class Config(object):
             # return Munch.fromYAML(stream)
         self.data = apply_defaults_data(config.data)
         # self.models = config.models
-        # self.experiments = {node: apply_defaults_data(data_settings) for node, data_settings in config.experiments.items()}
+        # self.experiments = {}
+        # for node, data_settings in config.experiments.items():
+        #     self.experiments[node] = apply_defaults_data(data_settings)
         self.params = apply_defaults_params(config.params)
         if args.precision_hidden_layers is not None:
             self.params.n_hidden_decoder_precisions = args.precision_hidden_layers
@@ -178,9 +180,7 @@ class Config(object):
 
 
 def get_data_directory():
-    """ 
-    Returns directory where observation datasets are stored (default: "data") 
-    """
+    """Returns directory where observation datasets are stored (default: "data")"""
     data_dir = os.getenv("INFERENCE_DATA_DIR")
     if data_dir:
         return data_dir
@@ -189,8 +189,9 @@ def get_data_directory():
 
 
 def get_results_directory():
-    """ 
-    Returns mount directory of remote machine on local, where inference results are to be stored (default: "results") 
+    """
+    Returns mount directory of remote machine on local, where inference results are to be stored
+    (default: "results")
     """
     results_dir = os.getenv("INFERENCE_RESULTS_DIR")
     if results_dir:

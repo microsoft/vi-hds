@@ -3,13 +3,9 @@
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-import os
 import pdb
 import numpy as np
-
-# import tensorflow as tf
 import torch
-from torch import nn
 
 from vihds.utils import variable_summaries
 
@@ -329,7 +325,7 @@ class TfNormal(TfCrnDistribution):
             self.sigma = 1.0 / self.prec.sqrt()
 
     def sample(self, u, stop_grad):
-        if stop_grad == True:
+        if stop_grad is True:
             return self.mu.detach() + self.sigma.detach() * u
         return self.mu + self.sigma * u
 
@@ -340,7 +336,7 @@ class TfNormal(TfCrnDistribution):
         return x
 
     def log_prob(self, x, stop_grad):
-        if stop_grad == True:
+        if stop_grad is True:
             prec = self.prec.detach()
             mu = self.mu.detach()
         else:

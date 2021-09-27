@@ -18,7 +18,7 @@ class Debug_Constant(OdeModel):
         n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
         x0 = torch.cat(
-            [theta.init_x.reshape([n_batch, n_iwae, 1]), torch.zeros([n_batch, n_iwae, self.n_species - 1]),], 2,
+            [theta.init_x.reshape([n_batch, n_iwae, 1]), torch.zeros([n_batch, n_iwae, self.n_species - 1])], 2,
         )
         return x0
 

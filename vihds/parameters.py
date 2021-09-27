@@ -1,6 +1,7 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 import numpy as np
 from vihds.distributions import (
     TfKumaraswamy,
@@ -84,7 +85,7 @@ class DistributionDescription(object):
                 elif defaults["prec"].__class__ == str:
                     print("found dependency for %s.prec = %s" % (self.name, defaults["prec"]))
                     prec_dependency = defaults["prec"]
-            elif defaults.has_key("sigma"):
+            elif "sigma" in defaults:
                 if (defaults["sigma"] is not None) and (defaults["sigma"].__class__ != str):
                     init_prec = 1.0 / np.square(defaults["sigma"])
                     init_log_prec = np.log(init_prec)
@@ -172,11 +173,11 @@ class DistributionDescription(object):
 
 
 def instantiate_from_specs(name, specs, cond):
-    try:  # catch conditions dict and skip
-        sd = specs["distribution"]
-    except:
+    if "distribution" not in specs:
         print("instantiate_from_specs:: skip instantiate")
         return None
+
+    sd = specs["distribution"]
     if sd == "Normal":
         mu = default_get_value(specs, "mu", 0.0)
         sigma = default_get_value(specs, "sigma", None)

@@ -34,6 +34,8 @@ def check_contains_one_events_file(path):
 
 
 def pre_test(pattern, example, num_folds):
+    '''Tests that a relatively quick (1 minute or so) call of run_xval.py, with two test epochs,
+       has a higher validation ELBO on the second test epoch than the first.'''
     results_dir = tempfile.mkdtemp()
     os.environ["INFERENCE_RESULTS_DIR"] = results_dir
     if num_folds > 1:
@@ -94,10 +96,6 @@ def post_test(example_dir):
     for suffix in ["pdf", "png"]:
         matches = [base for base in bases if base.endswith(suffix) and len(base.split("_")) == 4]
         assert len(matches) > 0, "Cannot find file matching *_*_*.%s in %s" % (suffix, example_dir,)
-
-
-### Tests that a relatively quick (1 minute or so) call of run_xval.py, with two test epochs,
-### has a higher validation ELBO on the second test epoch than the first.
 
 
 def test_run_xval_auto_constant():

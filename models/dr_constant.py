@@ -14,8 +14,8 @@ class DR_Constant_RHS(OdeFunc):
     def __init__(self, config, theta, treatments, dev1_hot, precisions=None, version=1):
         super(DR_Constant_RHS, self).__init__(config, theta, treatments, dev1_hot)
 
-        # Pass in a class instance for dynamic (neural) precisions. If None, then it is expected that you have
-        # latent variables for the precisions, as these will be assigned as part of BaseModel.expand_precisions_by_time()
+        # Pass in a class instance for dynamic (neural) precisions. If None, then it's expected that you have latent
+        # variables for the precisions, assigned as part of BaseModel.expand_precisions_by_time()
         self.precisions = precisions
 
         self.n_batch = theta.get_n_batch()
@@ -64,8 +64,6 @@ class DR_Constant_RHS(OdeFunc):
             KR12 = torch.clamp(theta.KR12, lb, ub)
             KS6 = torch.clamp(theta.KS6, lb, ub)
             KS12 = torch.clamp(theta.KS12, lb, ub)
-            # self.fracLuxR = torch.clamp((power(KR6*c6, nR) + power(KR12*c12, nR)) / power(1.0 + KR6*c6 + KR12*c12, nR), 1e-6, 1.0)
-            # self.fracLasR = torch.clamp((power(KS6*c6, nS) + power(KS12*c12, nS)) / power(1.0 + KS6*c6 + KS12*c12, nS), 1e-6, 1.0)
             self.fracLuxR = (power(KR6 * c6, nR) + power(KR12 * c12, nR)) / power(1.0 + KR6 * c6 + KR12 * c12, nR)
             self.fracLasR = (power(KS6 * c6, nS) + power(KS12 * c12, nS)) / power(1.0 + KS6 * c6 + KS12 * c12, nS)
         elif version == 2:
@@ -124,7 +122,7 @@ class DR_Constant(OdeModel):
         self.version = 1
 
     def condition_theta(self, theta, dev_1hot, writer, epoch):
-        """Condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device"""
+        """Condition on device information by mapping param_cond = f(param, d; phi) where d is one-hot rep of device"""
         n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
         ones = torch.tensor([1.0]).repeat([n_batch, n_iwae])

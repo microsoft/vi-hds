@@ -19,7 +19,8 @@ def create_parser():
         "--graph",
         type=str,
         default="unnamed",
-        help="Name for the inference graph and also location of tensorboard and saved results of all the nodes in the graph",
+        help=("Name for the inference graph and also location of tensorboard "
+              "and saved results of all the nodes in the graph")
     )
     return parser
 
@@ -44,7 +45,7 @@ def propagate_params(node, settings, resultmap):
         with open(labelsfp) as file:
             xlabels = [line.rstrip() for line in file]
 
-        avgmu = np.mean(xval[xlabels.index(incoming.sourceParam + ".mu")])  ## Average
+        avgmu = np.mean(xval[xlabels.index(incoming.sourceParam + ".mu")])
         prec = pooled_prec(xval[xlabels.index(incoming.sourceParam + ".prec")])
         distribution = "LogNormal"
         keyparams = ["global", "local", "shared"]
@@ -74,9 +75,9 @@ def save_propagatedParameters(params, folder):
 
 
 def run_graph(graph_name, staged_nodes):
-    ##Do some preprocessing and checks here?
+    # TODO: Do some preprocessing and checks here?
 
-    ## Create directory for results
+    # Create directory for results
     rootpath = os.path.join(vihds.config.get_results_directory(), graph_name)
 
     resultmap = {}

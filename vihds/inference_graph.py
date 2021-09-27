@@ -18,7 +18,7 @@ class Edge:
 def process_node_args(name, yamlargs, graph_name):
     split = False
     argarr = []
-    ## Should this also see if any one of those 3 arguments are in the command line?
+    # Should this also see if any one of those 3 arguments are in the command line?
     if "split" in yamlargs:
         True
         argarr.append("--split=" + str(yamlargs.split))
@@ -54,7 +54,7 @@ def process_node_args(name, yamlargs, graph_name):
     if "gpu" in yamlargs:
         argarr.append("--gpu=" + str(yamlargs.gpu))
 
-    ### Should probably add other arguments as well...
+    # Should probably add other arguments as well...
 
     parser = rxval.create_parser(split)
     args = parser.parse_args(argarr)
@@ -113,8 +113,11 @@ def create_inference_graph(graphyml, graph_name):
     return nodemap
 
 
-## Returns a map of the nodes where the key is "Level or stage" and the value is the list of nodes that can be executed in parallel at that stage.
 def arrange_by_stage(nodes):
+    '''
+    Returns a map of the nodes where the key is "Level or stage" and the value is the list of nodes that can be
+    executed in parallel at that stage.
+    '''
     stagemap = {}
     for node in nodes:
         if node.stage not in stagemap:

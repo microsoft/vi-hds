@@ -1,12 +1,11 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 from vihds.ode import OdeModel, OdeFunc, power
 from vihds.precisions import ConstantPrecisions, NeuralPrecisions
-from vihds.utils import default_get_value, variable_summaries
+from vihds.utils import variable_summaries
 import torch
-import numpy as np
-import pdb
 
 # pylint: disable = no-member, not-callable
 
@@ -17,8 +16,8 @@ class Relay_Constant_RHS(OdeFunc):
     ):
         super(Relay_Constant_RHS, self).__init__(config, theta, treatments, dev_1hot, condition_on_device)
 
-        # Pass in a class instance for dynamic (neural) precisions. If None, then it is expected that you have
-        # latent variables for the precisions, as these will be assigned as part of BaseModel.expand_precisions_by_time()
+        # Pass in a class instance for dynamic (neural) precisions. If None, then it's expected that you have latent
+        # variables for the precisions, assigned as part of BaseModel.expand_precisions_by_time()
         self.precisions = precisions
 
         self.n_batch = theta.get_n_batch()
@@ -84,8 +83,6 @@ class Relay_Constant_RHS(OdeFunc):
             KR12 = torch.clamp(theta.KR12, lb, ub)
             KS6 = torch.clamp(theta.KS6, lb, ub)
             KS12 = torch.clamp(theta.KS12, lb, ub)
-            # self.fracLuxR = torch.clamp((power(KR6*c6, nR) + power(KR12*c12, nR)) / power(1.0 + KR6*c6 + KR12*c12, nR), 1e-6, 1.0)
-            # self.fracLasR = torch.clamp((power(KS6*c6, nS) + power(KS12*c12, nS)) / power(1.0 + KS6*c6 + KS12*c12, nS), 1e-6, 1.0)
             self.fracLuxR = (power(KR6 * c6, nR) + power(KR12 * c12, nR)) / power(1.0 + KR6 * c6 + KR12 * c12, nR)
             self.fracLasR = (power(KS6 * c6, nS) + power(KS12 * c12, nS)) / power(1.0 + KS6 * c6 + KS12 * c12, nS)
         else:
@@ -128,7 +125,7 @@ class Relay_Constant_RHS(OdeFunc):
         d_c12 = (self.KC12 * self.rc * x * lasI) / (1.0 + lasI / self.Klas)
 
         dX = torch.stack(
-            [d_x, d_rfp, d_yfp, d_cfp, d_f530, d_f480, d_luxR, d_lasR, d_luxI, d_lasI, d_c6, d_c12,], axis=2,
+            [d_x, d_rfp, d_yfp, d_cfp, d_f530, d_f480, d_luxR, d_lasR, d_luxI, d_lasI, d_c6, d_c12], axis=2,
         )
         if self.precisions is not None:
             dV = self.precisions(t, state, None, self.n_batch, self.n_iwae)

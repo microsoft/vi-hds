@@ -1,10 +1,10 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 import torch
 from torch import nn
 from torch.utils.data import ConcatDataset
-import numpy as np
 from collections import OrderedDict
 from vihds.distributions import ChainedDistribution
 
@@ -20,9 +20,9 @@ class ConditionalEncoder(nn.Module):
         filter_size = params.filter_size
         pool_size = params.pool_size
         self.n_outputs = params.n_hidden
-        data_format = params.data_format
-        lambda_l2 = params.lambda_l2
-        lambda_l2_hidden = params.lambda_l2_hidden
+        # data_format = params.data_format
+        # lambda_l2 = params.lambda_l2
+        # lambda_l2_hidden = params.lambda_l2_hidden
 
         n_conv = n_obs - (filter_size - 1)
         # print("n_outputs_conv:", n_outputs_conv)
@@ -347,7 +347,7 @@ def build_p_conditioned(parameters, local, verbose):
 
 class Encoder(nn.Module):
     """
-    Variational autoencoder (VAE) for hierarchical parameters: 
+    Variational autoencoder (VAE) for hierarchical parameters:
     - Local (separate values for each data instance)
     - Group-level/global-conditioned (one value for each group, conditionedon device/group information)
     - Global (single inferred value)

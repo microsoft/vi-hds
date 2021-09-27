@@ -1,16 +1,16 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 import seaborn as sns
 import matplotlib
 
 matplotlib.use("agg")
-import matplotlib.pyplot as pp
-from matplotlib import cm
-import pdb
-import numpy as np
-import pandas as pd
-from vihds import utils
+import matplotlib.pyplot as pp  # noqa: E402
+from matplotlib import cm  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+from vihds import utils  # noqa: E402
 
 
 def plot_prediction_summary(
@@ -101,8 +101,7 @@ def plot_weighted_theta(
     for theta_idx in order_ids:
         theta_name = theta_names[theta_idx]
         train_theta = []
-        # TR_theta[ theta_idx ].flatten()
-        val_theta = []  # VL_theta[ theta_idx ].flatten()
+        val_theta = []
 
         for samples, values in zip(TR_samples, TR_theta[theta_idx]):
             train_theta.append(values[samples])
@@ -113,30 +112,20 @@ def plot_weighted_theta(
         train_thetas.append(np.array(train_theta).flatten())
         val_thetas.append(np.array(val_theta).flatten())
 
-    # names.append("weight")
     names.append("device")
-    # train_thetas.append(TR_iws.flatten())
     train_thetas.append(TR_devices.flatten())
-    # val_thetas.append(VL_iws.flatten())
     val_thetas.append(VL_devices.flatten())
 
     train_thetas = np.array(train_thetas, dtype=float).T
-    # val_thetas = np.array(val_thetas, dtype=float).T
     tr_df = pd.DataFrame(train_thetas, columns=names)
-    # vl_df = pd.DataFrame(val_thetas, columns = names)
 
-    # f = pp.figure(figsize=(16,16))
-    # ax = f.add_subplot(111)
     sns.set(style="ticks")
 
-    # g = sns.pairplot(tr_df, vars=columns2use,hue="device",height=2.0, plot_kws=dict(s=20, edgecolor="k",linewidth=0.1))
-    g = sns.PairGrid(tr_df, hue="device", vars=columns2use)  # , hue_kws={"cmap": ["Blues", "Greens", "Reds"]})
+    g = sns.PairGrid(tr_df, hue="device", vars=columns2use)
     g = g.map_diag(sns.kdeplot, shade=True, alpha=0.5)
-    # g = g.map_lower(sns.jointplot, kind='hex',gridsize=2) #bw=0.5, n_levels=3)
 
     g = g.map_offdiag(sns.scatterplot, s=20, alpha=0.25, edgecolor="k", linewidth=0.5)
     g = g.add_legend()
-    # g = g.map_offdiag(sns.sactter,  kind='hex' kwargs={})
     return g.fig
 
 
@@ -147,7 +136,6 @@ def species_summary(
     ndevices = len(devices)
     nplots = iw_states.shape[1]
     fs = 14
-    treat_max = treatments.max()
     colors = "grbcmyk"
 
     divisors = [np.max(iw_states[:, idx, :]) if normalise else 1.0 for idx in range(nplots)]
@@ -155,7 +143,7 @@ def species_summary(
     f, axs = pp.subplots(ndevices, nplots, sharex=True, sharey=normalise, figsize=(14, 2 * ndevices))
     for iu, device_id in enumerate(devices):
         for idx in range(nplots):
-            if ndevices is 1:
+            if ndevices == 1:
                 ax = axs[idx]
             else:
                 ax = axs[iu, idx]
@@ -180,7 +168,7 @@ def species_summary(
                 else:
                     ax.set_title("Latent %d" % (idx - len(species_names)))
             ax.set_xticks([0, 4, 8, 12, 16])
-        if ndevices is 1:
+        if ndevices == 1:
             ax = axs[0]
         else:
             ax = axs[iu, 0]
@@ -239,11 +227,11 @@ def xval_treatments(res, devices):
             ax.set_ylim(-0.1, 1.1)
             ax.tick_params(axis="both", which="major", labelsize=fs)
             ax.set_xticks(np.logspace(0, 4, 3))
-            if j is 0:
+            if j == 0:
                 ax.set_ylabel(
                     res.settings.devices[iu], labelpad=25, fontweight="bold", fontsize=fs,
                 )
-            if iu is 0:
+            if iu == 0:
                 ax.set_title(signal, fontsize=fs)
 
     # Add legend to one of the panels
@@ -428,7 +416,7 @@ def xval_individual_2treatments(res, device_id):
                     ntreatments, 2 * nplots, col * nplots + (ntreatments - i - 1) * 2 * nplots + idx + 1,
                 )
                 ax.set_position(
-                    [left + idx * dx, bottom + (ntreatments - i - 1) * dy, width, height,]
+                    [left + idx * dx, bottom + (ntreatments - i - 1) * dy, width, height]
                 )
 
                 mu = res.iw_predict_mu[loc, idx, :]
@@ -530,7 +518,7 @@ def combined_treatments(results, devices):
     xlabels = ["C$_6$ (nM)", "C$_{12}$ (nM)"]
     for k, xlabel in enumerate(xlabels):
         f.add_subplot(
-            1, 2, k + 1, frameon=False, position=[lefts[k], bottom, width + (nres - 1) * dx, height + (ndev - 1) * dy,],
+            1, 2, k + 1, frameon=False, position=[lefts[k], bottom, width + (nres - 1) * dx, height + (ndev - 1) * dy],
         )
         pp.tick_params(labelcolor="none", top=False, bottom=False, left=False, right=False)
         pp.xlabel(xlabel, fontsize=fs, labelpad=10)

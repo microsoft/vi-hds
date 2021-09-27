@@ -1,12 +1,10 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
-from vihds.ode import OdeModel, OdeFunc, power
+# ------------------------------------
+from vihds.ode import OdeModel, OdeFunc
 from vihds.precisions import ConstantPrecisions, NeuralPrecisions
-from vihds.utils import default_get_value, variable_summaries
 import torch
-import numpy as np
-import pdb
 
 # pylint: disable = no-member, not-callable
 
@@ -15,15 +13,15 @@ class PRPR_Constant_RHS(OdeFunc):
     def __init__(self, config, theta, treatments, dev_1hot, precisions=None, version=1):
         super(PRPR_Constant_RHS, self).__init__(config, theta, treatments, dev_1hot)
 
-        # Pass in a class instance for dynamic (neural) precisions. If None, then it is expected that you have
-        # latent variables for the precisions, as these will be assigned as part of BaseModel.expand_precisions_by_time()
+        # Pass in a class instance for dynamic (neural) precisions. If None, then it's expected that you have latent
+        # variables for the precisions, assigned as part of BaseModel.expand_precisions_by_time()
         self.precisions = precisions
 
         self.n_batch = theta.get_n_batch()
         self.n_iwae = theta.get_n_samples()
         self.n_species = 6
 
-        ## TODO -> NN growth model for ethanol?
+        # TODO: NN growth model for ethanol?
         # tile treatments, one per iwae sample
         # treatments_transformed = torch.clamp(torch.exp(treatments) - 1.0, 1e-12, 1e6)
         # c6a, c12a = torch.unbind(treatments_transformed, axis=1)

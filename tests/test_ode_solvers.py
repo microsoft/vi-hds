@@ -1,6 +1,7 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 import time
 import numpy as np
 import pandas as pd
@@ -22,7 +23,7 @@ from vihds.run_xval import create_parser
 # Setup config, data, parameters and model
 parser = create_parser(True)
 samples = 5
-args = parser.parse_args(["--train_samples=%d" % samples, "--test_samples=%d" % samples, "specs/dr_constant_one.yaml",])
+args = parser.parse_args(["--train_samples=%d" % samples, "--test_samples=%d" % samples, "specs/dr_constant_one.yaml"])
 
 
 def simulate(settings, model, theta, batch, solver, adjoint, verbose):
