@@ -28,4 +28,5 @@ jobs:
     - name: Test with pytest
       run: |
         conda install pytest
+        export PYTHONPATH=.
         pytest
