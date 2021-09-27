@@ -26,6 +26,7 @@ tmp*
 env
 
 ## Miscellaneous
+.vihds_cache
 results
 notebooks
 test.cmd
