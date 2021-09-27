@@ -1,0 +1,32 @@
+# Configuration for the interrogate tool which checks docstring coverage
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = false
+ignore-magic = true
+ignore-semiprivate = false
+ignore-private = false
+ignore-property-decorators = false
+ignore-module = false
+fail-under = 80.0
+exclude = ["*tests"]
+ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
+verbose = 1
+quiet = false
+whitelist-regex = []
+color = true
+
+[tool.black]
+line-length = 120
+include = '\.pyi?$'
+exclude = '''
+/(
+     \.git
+   | \.mypy_cache
+   | Notebooks
+   | libraries/Emukit
+)/
+'''
+
+[tool.pyright]
+exclude = ["libraries/Emukit", "libraries/GlobalPenalisation"]
+useLibraryCodeForTypes = true
