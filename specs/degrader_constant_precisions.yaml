@@ -4,52 +4,46 @@
 # ------------------------------------
 
 data:
-  devices: ['Pcat_Y81C76']
-  pretty_devices: ['Pcat-Pcat']
-  files: ['proc141006.csv']
+  devices: ['R33S175_PBadaiia']
+  pretty_devices: ['Degrader']
+  ## groups:
+  ##   aR: [0]  # LuxR RBS This should be just one right??
+  ##   aS: [0]  # LasR RBS This should be just one right??   
+  ## default_devices:
+  ##   aR: 0
+  ##   aS: 0
+  files: ['proc_degrader_RemovedDuplicates.csv']
   signals: ["OD", "mRFP1", "EYFP", "ECFP"]
-  conditions: ["C6","C12"]
-  separate_conditions: True
-    #dtype: float64
-  
-model: dr_constant
+  conditions: ["C6","C12","Ara"]
+  separate_conditions: true
+    
+model: degrader_constant_precisions
 
 params:
-  learning_boundaries: [250,1000]
+  learning_boundaries: [250,500]
   learning_rate: 0.01
   learning_gamma: 0.2
-  solver: midpoint
-  #adjoint_solver: True
+  n_hidden_decoder_precisions: 0
 
-  constant: 
+  constant:
     init_x: 0.002
     init_rfp: 0.0
     init_yfp: 0.0
     init_cfp: 0.0
     init_luxR: 0.0
     init_lasR: 0.0
-    # nR: 1.0
-    # nS: 1.0
+    init_aiiA: 0.0
   
   # SHARED PARAMETERS 
   shared:
-    data_precision_lognormal:   { distribution: LogNormal, mu: 8.0,  sigma: 2.0 }
-    data_precision_lognormal_x: { distribution: LogNormal, mu: 8.0,  sigma: 2.0 }    
-    auto_precision_lognormal:   { distribution: LogNormal, mu: -5.0, sigma: 2.0 }
-    a_precision_lognormal:      { distribution: LogNormal, mu: 1.0,  sigma: 2.0 }
-    dfp_precision_lognormal:    { distribution: LogNormal, mu: -2.0, sigma: 1.5 }
+    auto_prec: { distribution: LogNormal, mu: -5.0, sigma: 2.0 }
+    dfp_prec:  { distribution: LogNormal, mu: -2.0, sigma: 1.5 }
+    init_prec: { distribution: LogNormal, mu: 6.0, sigma: 2.0 }
 
   global_conditioned:
     conditioning: { devices: true, treatments: false }
-    aR:   { distribution: LogNormal, mu:  1.0, sigma: 3.0}
-    aS:   { distribution: LogNormal, mu:  1.0, sigma: 3.0}
-
-  global:    
-    prec_x:   { distribution: data_precision_lognormal_x}
-    prec_rfp: { distribution: data_precision_lognormal}
-    prec_yfp: { distribution: data_precision_lognormal}
-    prec_cfp: { distribution: data_precision_lognormal}
     
+  global:    
     e76:    { distribution: LogNormal, mu: -3.0, sigma: 1.0}
     e81:    { distribution: LogNormal, mu: -3.0, sigma: 1.0}
     KGR_76: { distribution: LogNormal, mu: 2.0, sigma: 3.0}
@@ -60,24 +54,38 @@ params:
     KR12:   { distribution: LogNormal, mu: -12.0, sigma: 3.0}
     KS6:    { distribution: LogNormal, mu: -12.0, sigma: 3.0}
     KS12:   { distribution: LogNormal, mu: -6.0, sigma: 3.0}
-    # eR12:   { distribution: LogNormal, mu: -12.0, sigma: 3.0}
-    # eS6:    { distribution: LogNormal, mu: -12.0, sigma: 3.0}
     nR:     { distribution: LogNormal, mu: 0.0, sigma: 0.25}
     nS:     { distribution: LogNormal, mu: 0.0, sigma: 0.25}
     aYFP:   { distribution: LogNormal, mu: 0.0, sigma: 2.0}
     aCFP:   { distribution: LogNormal, mu: 0.0, sigma: 2.0}
-
     dR:     { distribution: LogNormal, mu: -2.0, sigma: 1.0}
     dS:     { distribution: LogNormal, mu: -2.0, sigma: 1.0}
-    drfp:   { distribution: dfp_precision_lognormal}
-    dyfp:   { distribution: dfp_precision_lognormal}
-    dcfp:   { distribution: dfp_precision_lognormal}
-    a530:  { distribution: auto_precision_lognormal}
-    a480:  { distribution: auto_precision_lognormal}
+    drfp:   { distribution: dfp_prec}
+    dyfp:   { distribution: dfp_prec}
+    dcfp:   { distribution: dfp_prec}
+    a530:  { distribution: auto_prec}
+    a480:  { distribution: auto_prec}
+
+    aR    :   { distribution: LogNormal, mu: 0.0, sigma: 0.25}
+    aS    :   { distribution: LogNormal, mu: 0.0, sigma: 0.25}
+    aI    :   { distribution: LogNormal, mu: 0.0, sigma: 0.25}
+    dA6   :   { distribution: LogNormal, mu: 0.0, sigma: 0.25}
+    dA12  :   { distribution: LogNormal, mu: 0.0, sigma: 0.25}
+    daiiA :   { distribution: LogNormal, mu: 0.0, sigma: 0.25}
+    
+    nA   : { distribution: LogNormal, mu: 0.0, sigma: 0.25}
+    eA   : { distribution: LogNormal, mu: -3.0, sigma: 1.0}
+    KAra : { distribution: LogNormal, mu: 0.0, sigma: 2.0}
+
+    init_prec_x: { distribution: init_prec}
+    init_prec_rfp: { distribution: init_prec}
+    init_prec_yfp: { distribution: init_prec}
+    init_prec_cfp: { distribution: init_prec}
 
   # LOCAL PARAMETERS:
   local:
     conditioning: { devices: true, treatments: False }
+
     r:    {distribution: LogNormal, mu: 0.0,   sigma: 0.25}
     K:    {distribution: LogNormal, mu: 0.0,   prec: 2.0}
     tlag: {distribution: LogNormal, mu: 0.0,   prec: 2.0}

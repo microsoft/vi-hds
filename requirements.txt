@@ -1,8 +1,14 @@
-tensorflow-gpu==1.15.5
-tensorboard==1.15.0
-numpy==1.18.5
-matplotlib
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch==1.4.0
+torchvision
+numpy
+pillow
+torchdiffeq==0.1
 pandas
 seaborn
+munch
 pyyaml
 pytest
+tensorboard
+tensorflow
+azureml-sdk[tensorboard]

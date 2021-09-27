@@ -1,75 +1,94 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under a Microsoft Research License.
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
 
+import time
 import numpy as np
-import tensorflow.compat.v1 as tf # type: ignore
+import pandas as pd
+from torch.utils.data import DataLoader
+
+# pylint: disable=not-callable,no-member
 
 # Call tests in this file by running "pytest" on the directory containing it. For example:
 #   cd ~/vi-hds
 #   pytest tests
 
-import models
-import src.utils as utils
-from src.procdata import apply_defaults
-from src.distributions import DotOperatorSamples
-from src.run_xval import Runner, create_parser
+from vihds.datasets import build_datasets
+from vihds.config import Config
+from vihds.parameters import Parameters
+from vihds.training import batch_to_device, Training
+from vihds.vae import build_model
+from vihds.run_xval import create_parser
 
-def test_ode_solvers():
+# Setup config, data, parameters and model
+parser = create_parser(True)
+samples = 5
+args = parser.parse_args(['--train_samples=%d'%samples,'--test_samples=%d'%samples,'specs/dr_constant_one.yaml'])
 
-    # Load a spec (YAML)
-    parser = create_parser(False)
-    args = parser.parse_args(['./specs/dr_constant_icml.yaml'])
-    spec = utils.load_config_file(args.yaml)  # spec is a dict of dicts of dicts
-    para_settings = utils.apply_defaults(spec['params'])
-    data_settings = apply_defaults(spec["data"])
-    model = para_settings['model']
+def simulate(settings, model, theta, batch, solver, adjoint, verbose):
+    settings.params.solver = solver
+    test_start = time.time()
+    sol = model.decoder.ode_model.simulate(settings, batch.times, theta, batch.inputs, batch.dev_1hot, condition_on_device=False)
+    test_time = time.time() - test_start
+    if verbose:
+        print('\n- %s: %1.3f seconds' % (solver, test_time), end='')
+    else:
+        print('.', end='')
+    return sol[:,:,:,-1].cpu().detach().numpy(), test_time
 
-    # Load the parameter priors
-    shared = dict([(k, np.exp(v['mu'])) for k, v in para_settings['shared'].items()])
-    priors = dict()
-    priors.update(para_settings['global'])
-    priors.update(para_settings['global_conditioned'])
-    priors.update(para_settings['local'])
+def run(args, verbose=False):
+    settings = Config(args)
+    data = build_datasets(args, settings)
+    parameters = Parameters(settings.params)
+    model = build_model(args, settings, data, parameters)
+    training = Training(args, settings, data, parameters, model)
 
-    # Define a parameter sample that is the mode of each LogNormal prior
-    theta = DotOperatorSamples()
-    for k, v in priors.items():
-        if k != "conditioning":
-            if 'mu' in v: 
-                sample_value = np.exp(v['mu'])         
-            else: 
-                sample_value = shared[v['distribution']]
-            theta.add(k, np.tile(sample_value, [1,1]).astype(np.float32))
-
-    # Add the constants separately
-    for k, v in para_settings['constant'].items():
-        theta.add(k, np.tile(v, [1,1]).astype(np.float32))
-
-    # Set up model runner
-    trainer = utils.Trainer(args, add_timestamp=True)
-    self = Runner(args, 0, trainer)
-    self.params_dict = para_settings
-    self._prepare_data(data_settings)
-    self.n_batch = min(self.params_dict['n_batch'], self.dataset_pair.n_train)
-
-    # Set various attributes of the model
-    model_class = models.LOOKUP[self.params_dict["model"]]
-    model = model_class(self.params_dict, self.procdata)
+    # Prepare a data sample
+    train_loader = DataLoader(dataset=data.train, batch_size=settings.params.n_batch, shuffle=True)
+    batch = next(iter(train_loader))
+    batch = batch_to_device(data.train.dataset.times, settings.device, batch)
+    
+    # Run the encoder to generate q, then sample some thetas
+    q = training.model.encoder(batch)
+    u = training.model.sample_u(len(batch.inputs), samples)
+    theta = q.sample(u, training.model.device)
+    #clipped_theta = model.encoder.p.clip(theta, stddevs=4)
 
     # Define simulation variables and run simulator
-    times = np.linspace(0.0, 20.0, 101).astype(np.float32)
-    conditions = np.array([[1.0, 1.0]]).astype(np.float32)
-    dev_1hot = np.expand_dims(np.zeros(7).astype(np.float32),0)
-    sol_rk4 = model.simulate(theta, times, conditions, dev_1hot, 'rk4')[0]
-    sol_mod = model.simulate(theta, times, conditions, dev_1hot, 'modeulerwhile')[0]
+    solvers = ['modeuler','modeulerwhile','dopri5','dopri8','midpoint','rk4']#,'adaptive_heun','bosh3']
+    print('--------------------')
+    # Run
+    print('Direct versions of the solvers ', end='')
+    dir_solutions, dir_times = zip(*[simulate(settings, training.model, theta, batch, solver, False, verbose) for solver in solvers])
+    print('\nAdjoint versions of the solvers ', end='')
+    settings.params.adjoint_solver = True
+    adj_solutions, adj_times = zip(*[simulate(settings, training.model, theta, batch, solver, True, verbose) for solver in solvers[2:]])
+    
+    sol_array = np.array(dir_solutions + adj_solutions)
+    std = np.std(sol_array, axis=0)
+    mean = np.mean(sol_array, axis=0)
+    cvs = std / mean
+    cv_max = np.max(cvs)
+    print('\nMaximum CV: %1.3f' % cv_max)
+    print('--------------------')
+    assert cv_max < 0.05, "Coefficient of variation across solvers should not exceed 5%"
+    df = pd.DataFrame.from_dict({'Direct': dir_times, 'Adjoint': [float('nan')]*2 + list(adj_times)})
+    df.index = solvers
+    print('Times')
+    print(df)
 
-    # Run TF session to extract an ODE simulation using modified Euler and RK4
-    sess = tf.Session()
-    sess.run(tf.global_variables_initializer()) 
-    [mod, rk4] = sess.run([sol_mod, sol_rk4])
-    print(np.shape(mod))
+# Run in CPU mode
+def test_solvers_cpu():
+    print('\nTesting solvers with CPU')
+    print('--------------------------')
+    run(args)
 
-    # Ensure that the relative error is no bigger than 5%
-    Y0 = mod[0][0][-1]
-    Y1 = rk4[0][0][-1]
-    assert np.nanmax(np.abs((Y0 - Y1) / Y0)) < 0.05, 'Difference between Modified Euler and RK4 solvers greater than 5%'
+# Run in GPU mode
+def test_solvers_gpu():
+    print('\nTesting solvers with GPU')
+    print('--------------------------')
+    args.gpu = 0
+    run(args)
+
+if __name__ == '__main__':
+    #test_solvers_cpu()
+    test_solvers_gpu()

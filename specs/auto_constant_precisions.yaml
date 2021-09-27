@@ -1,0 +1,52 @@
+# ------------------------------------
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+# ------------------------------------
+
+data:
+  devices: ['EC10G']
+  pretty_devices: ['EC10G']
+  files: ['proc_EC10G_EtOH.csv']
+  signals: ["OD", "mRFP1", "EYFP", "ECFP"]
+  conditions: ["EtOH"]
+  separate_conditions: false
+    
+model: auto_constant_precisions
+
+params:
+  learning_boundaries: [250,500]
+  learning_rate: 0.01
+  learning_gamma: 0.2
+  n_hidden_decoder_precisions: 0
+
+  constant:
+    init_x: 0.002
+    init_rfp: 0.0
+  
+  # SHARED PARAMETERS 
+  shared:
+    auto_prec: { distribution: LogNormal, mu: -5.0, sigma: 2.0 }
+    dfp_prec:  { distribution: LogNormal, mu: -2.0, sigma: 1.5 }
+    init_prec: { distribution: LogNormal, mu: 6.0, sigma: 2.0 }
+
+  global_conditioned:
+    conditioning: { devices: true, treatments: false }
+    
+  global:    
+    a530:   { distribution: LogNormal, mu: 0.0, sigma: 2.0}
+    a480:   { distribution: LogNormal, mu: 0.0, sigma: 2.0}
+    drfp:   { distribution: dfp_prec}
+    
+    init_prec_x: { distribution: init_prec}
+    init_prec_rfp: { distribution: init_prec}
+    init_prec_yfp: { distribution: init_prec}
+    init_prec_cfp: { distribution: init_prec}
+
+  # LOCAL PARAMETERS:
+  local:
+    conditioning: { devices: true, treatments: False }
+
+    r:    {distribution: LogNormal, mu: 0.0,   sigma: 0.25}
+    K:    {distribution: LogNormal, mu: 0.0,   prec: 2.0}
+    tlag: {distribution: LogNormal, mu: 0.0,   prec: 2.0}
+    rc:   {distribution: LogNormal, mu: 0.0,   sigma: 2.0}  #blows up on 'prec', why?

@@ -1,5 +1,7 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under a Microsoft Research License.
+# ------------------------------------
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+# ------------------------------------
 
 data:
   devices: ['Pcat_Y81C76','RS100S32_Y81C76','RS100S34_Y81C76','R33S32_Y81C76','R33S34_Y81C76','R33S175_Y81C76']
@@ -14,25 +16,28 @@ data:
   signals: ["OD", "mRFP1", "EYFP", "ECFP"]
   conditions: ["C6","C12"]
   separate_conditions: true
-  
-params:
-  model: dr_constant_precisions
-  theta_columns: ['aYFP','aCFP','aR','aS','r','K']
-  lambda_l2: 0.001
-  lambda_l2_hidden: 0.001
-  learning_boundaries: [250,1000]
-  learning_rates: [0.01,0.002,0.0002]
-  n_hidden_decoder_precisions: 4
+    
+model: dr_constant_precisions
 
-  constant: { init_x: 0.002, init_rfp: 0.0, init_yfp: 0.0, init_cfp: 0.0, init_luxR: 0.0, init_lasR: 0.0 }
+params:
+  learning_boundaries: [250,500]
+  learning_rate: 0.01
+  learning_gamma: 0.2
+  n_hidden_decoder_precisions: 0
+
+  constant:
+    init_x: 0.002
+    init_rfp: 0.0
+    init_yfp: 0.0
+    init_cfp: 0.0
+    init_luxR: 0.0
+    init_lasR: 0.0
   
   # SHARED PARAMETERS 
   shared:
-    data_precision_lognormal:   { distribution: LogNormal, mu: 8.0,  sigma: 2.0 }
-    data_precision_lognormal_x: { distribution: LogNormal, mu: 8.0,  sigma: 2.0 }    
-    auto_precision_lognormal:   { distribution: LogNormal, mu: -5.0, sigma: 2.0 }
-    a_precision_lognormal:      { distribution: LogNormal, mu: 1.0,  sigma: 2.0 }
-    dfp_precision_lognormal:    { distribution: LogNormal, mu: -2.0, sigma: 1.5 }
+    auto_prec: { distribution: LogNormal, mu: -5.0, sigma: 2.0 }
+    dfp_prec:  { distribution: LogNormal, mu: -2.0, sigma: 1.5 }
+    init_prec: { distribution: LogNormal, mu: 6.0, sigma: 2.0 }
 
   global_conditioned:
     conditioning: { devices: true, treatments: false }
@@ -48,24 +53,28 @@ params:
     KR12:   { distribution: LogNormal, mu: -12.0, sigma: 3.0}
     KS6:    { distribution: LogNormal, mu: -12.0, sigma: 3.0}
     KS12:   { distribution: LogNormal, mu: -6.0, sigma: 3.0}
-    nR:     { distribution: LogNormal, mu: 1.0, sigma: 0.25}
-    nS:     { distribution: LogNormal, mu: 1.0, sigma: 0.25}
+    nR:     { distribution: LogNormal, mu: 0.0, sigma: 0.25}
+    nS:     { distribution: LogNormal, mu: 0.0, sigma: 0.25}
     aYFP:   { distribution: LogNormal, mu: 0.0, sigma: 2.0}
     aCFP:   { distribution: LogNormal, mu: 0.0, sigma: 2.0}
-
     dR:     { distribution: LogNormal, mu: -2.0, sigma: 1.0}
     dS:     { distribution: LogNormal, mu: -2.0, sigma: 1.0}
-    drfp:   { distribution: dfp_precision_lognormal}
-    dyfp:   { distribution: dfp_precision_lognormal}
-    dcfp:   { distribution: dfp_precision_lognormal}
-    autoY:  { distribution: auto_precision_lognormal}
-    autoC:  { distribution: auto_precision_lognormal}
+    drfp:   { distribution: dfp_prec}
+    dyfp:   { distribution: dfp_prec}
+    dcfp:   { distribution: dfp_prec}
+    a530:  { distribution: auto_prec}
+    a480:  { distribution: auto_prec}
+
+    init_prec_x: { distribution: init_prec}
+    init_prec_rfp: { distribution: init_prec}
+    init_prec_yfp: { distribution: init_prec}
+    init_prec_cfp: { distribution: init_prec}
 
   # LOCAL PARAMETERS:
   local:
     conditioning: { devices: true, treatments: False }
 
     r:    {distribution: LogNormal, mu: 0.0,   sigma: 0.25}
-    K:    {distribution: LogNormal, mu: 1.0,   prec: 2.0}
+    K:    {distribution: LogNormal, mu: 0.0,   prec: 2.0}
     tlag: {distribution: LogNormal, mu: 0.0,   prec: 2.0}
     rc:   {distribution: LogNormal, mu: 0.0,   sigma: 2.0}  #blows up on 'prec', why?

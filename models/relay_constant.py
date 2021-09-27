@@ -1,17 +1,18 @@
-# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-# ------------------------------------
+
 from vihds.ode import OdeModel, OdeFunc, power
 from vihds.precisions import ConstantPrecisions, NeuralPrecisions
-from vihds.utils import variable_summaries
+from vihds.utils import default_get_value, variable_summaries
 import torch
+import numpy as np
+import pdb
 
 # pylint: disable = no-member, not-callable
 
-class DR_Constant_RHS(OdeFunc):
-    def __init__(self, config, theta, treatments, dev1_hot, precisions=None, version=1):
-        super(DR_Constant_RHS, self).__init__(config, theta, treatments, dev1_hot)
+class Relay_Constant_RHS(OdeFunc):
+    def __init__(self, config, theta, treatments, dev_1hot, condition_on_device, precisions=None, version=1):
+        super(Relay_Constant_RHS, self).__init__(config, theta, treatments, dev_1hot, condition_on_device)
 
         # Pass in a class instance for dynamic (neural) precisions. If None, then it is expected that you have 
         # latent variables for the precisions, as these will be assigned as part of BaseModel.expand_precisions_by_time()
@@ -19,7 +20,7 @@ class DR_Constant_RHS(OdeFunc):
         
         self.n_batch = theta.get_n_batch()
         self.n_iwae = theta.get_n_samples()
-        self.n_species = 8
+        self.n_species = 10
 
         # tile treatments, one per iwae sample
         treatments_transformed = torch.clamp(torch.exp(treatments) - 1.0, 1e-12, 1e6)
@@ -40,6 +41,10 @@ class DR_Constant_RHS(OdeFunc):
         self.dcfp = torch.clamp(theta.dcfp, 1e-12, 2.0)
         self.dR = torch.clamp(theta.dR, 1e-12, 5.0)
         self.dS = torch.clamp(theta.dS, 1e-12, 5.0)
+        
+        self.dlasI = torch.clamp(theta.dlasI, 1e-12, 5.0)
+        self.dluxI = torch.clamp(theta.dluxI, 1e-12, 5.0)
+        
 
         self.e76 = theta.e76
         self.e81 = theta.e81
@@ -49,6 +54,22 @@ class DR_Constant_RHS(OdeFunc):
         self.KGS_76 = theta.KGS_76
         self.KGR_81 = theta.KGR_81
         self.KGS_81 = theta.KGS_81
+        
+        self.KC6 = theta.KC6
+        self.KC12 = theta.KC12
+        self.Klux = theta.Klux
+        self.Klas = theta.Klas
+        
+        
+
+        # Condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
+        # if condition_on_device:
+        #     ones = torch.tensor([1.0]).repeat([self.n_batch, self.n_iwae])
+        #     self.aR = self.device_conditioner(ones, 'aR', dev_1hot)
+        #     self.aS = self.device_conditioner(ones, 'aS', dev_1hot)
+        # else:
+        #     self.aR = theta.aR
+        #     self.aS = theta.aS
 
         self.aR = theta.aR
         self.aS = theta.aS
@@ -67,16 +88,11 @@ class DR_Constant_RHS(OdeFunc):
             #self.fracLasR = torch.clamp((power(KS6*c6, nS) + power(KS12*c12, nS)) / power(1.0 + KS6*c6 + KS12*c12, nS), 1e-6, 1.0)
             self.fracLuxR = (power(KR6*c6, nR) + power(KR12*c12, nR)) / power(1.0 + KR6*c6 + KR12*c12, nR)
             self.fracLasR = (power(KS6*c6, nS) + power(KS12*c12, nS)) / power(1.0 + KS6*c6 + KS12*c12, nS)
-        elif version == 2:
-            eS6 = torch.clamp(theta.eS6, lb, ub)
-            eR12 = torch.clamp(theta.eR12, lb, ub)
-            self.fracLuxR = power(c6, nR) + power(eR12*c12, nR)
-            self.fracLasR = power(eS6*c6, nS) + power(c12, nS)
         else:
-            raise Exception("Unknown version of DR_Constant: %d" % version)
-
+            raise Exception("Unknown version of Relay_Constant: %d" % version)
+            
     def forward(self, t, state):
-        x, rfp, yfp, cfp, f530, f480, luxR, lasR = torch.unbind(state[:,:,:self.n_species], axis=2)
+        x, rfp, yfp, cfp, f530, f480, luxR, lasR, luxI, lasI = torch.unbind(state[:,:,:self.n_species], axis=2)
 
         # Cells growing or not (not before lag-time)
         gr = self.r * torch.sigmoid(4.0 * (t -  self.tlag))
@@ -91,6 +107,7 @@ class DR_Constant_RHS(OdeFunc):
         P76 = (self.e76 + self.KGR_76 * boundLuxR + self.KGS_76 * boundLasR) / (1.0 + self.KGR_76 * boundLuxR + self.KGS_76 * boundLasR)
         P81 = (self.e81 + self.KGR_81 * boundLuxR + self.KGS_81 * boundLasR) / (1.0 + self.KGR_81 * boundLuxR + self.KGS_81 * boundLasR)
 
+
         # Right-hand sides
         d_x = gamma * x
         d_rfp = self.rc - (gamma + self.drfp) * rfp
@@ -101,7 +118,14 @@ class DR_Constant_RHS(OdeFunc):
         d_luxR = self.rc * self.aR - (gamma + self.dR) * luxR
         d_lasR = self.rc * self.aS - (gamma + self.dS) * lasR
 
-        dX = torch.stack([d_x, d_rfp, d_yfp, d_cfp, d_f530, d_f480, d_luxR, d_lasR], axis=2)
+        d_luxI = self.rc * P81 - (gamma + self.dluxI) * luxI
+        d_lasI = self.rc * P76 - (gamma + self.dlasI) * lasI 
+
+        d_c6 = (self.KC6 * self.rc * x * luxI)/ (1.0 + luxI/self.Klux)
+        d_c12 = (self.KC12 * self.rc * x * lasI)/ (1.0 + lasI/self.Klas)
+
+
+        dX = torch.stack([d_x, d_rfp, d_yfp, d_cfp, d_f530, d_f480, d_luxR, d_lasR,d_luxI,d_lasI,d_c6,d_c12], axis=2)
         if self.precisions is not None:
             dV = self.precisions(t, state, None, self.n_batch, self.n_iwae)
             return torch.cat([dX, dV], dim=2)
@@ -109,33 +133,30 @@ class DR_Constant_RHS(OdeFunc):
             return dX
 
 
-class DR_Constant(OdeModel):
+class Relay_Constant(OdeModel):
     def __init__(self, config):
-        super(DR_Constant, self).__init__(config)
+        super(Relay_Constant, self).__init__(config)
         self.precisions = ConstantPrecisions(['prec_x','prec_rfp','prec_yfp','prec_cfp'])
-        self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR']
-        self.n_species = 8
+        self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR','LuxI','LasI','C6','C12']
+        self.n_species = 12
         self.device = config.device
         self.version = 1
-
-    def condition_theta(self, theta, dev_1hot, writer, epoch):
-        '''Condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device'''
-        n_batch = theta.get_n_batch()
-        n_iwae = theta.get_n_samples()
-        ones = torch.tensor([1.0]).repeat([n_batch, n_iwae])
-        theta.aR = self.device_conditioner(ones, 'aR', dev_1hot)
-        theta.aS = self.device_conditioner(ones, 'aS', dev_1hot)
-        return theta
 
     def initialize_state(self, theta, _treatments):
         n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
         zero = torch.zeros([n_batch, n_iwae], device=self.device)
-        x0 = torch.stack([theta.init_x, theta.init_rfp, theta.init_yfp, theta.init_cfp, zero, zero, theta.init_luxR, theta.init_lasR], axis=2)
+
+        treatments_transformed = torch.clamp(torch.exp(_treatments) - 1.0, 1e-12, 1e6)
+        c6a, c12a = torch.unbind(treatments_transformed, axis=1)
+        c6 = torch.transpose(c6a.repeat([n_iwae, 1]),0,1)
+        c12 = torch.transpose(c12a.repeat([n_iwae, 1]),0,1)
+
+        x0 = torch.stack([theta.init_x, theta.init_rfp, theta.init_yfp, theta.init_cfp, zero, zero, theta.init_luxR, theta.init_lasR, theta.init_luxI, theta.init_lasI,c6,c12], axis=2)
         return x0
 
-    def gen_reaction_equations(self, config, theta, treatments, dev_1hot):
-        func = DR_Constant_RHS(config, theta, treatments, dev_1hot, version=self.version)
+    def gen_reaction_equations(self, config, theta, treatments, dev_1hot, condition_on_device=True):
+        func = Relay_Constant_RHS(config, theta, treatments, dev_1hot, condition_on_device, version=self.version)
         self.aR = func.aR
         self.aS = func.aS
         return func
@@ -145,17 +166,11 @@ class DR_Constant(OdeModel):
         variable_summaries(writer, epoch, self.aS, 'aS.conditioned')
 
 
-class DR_Constant_V2(DR_Constant):
+class Relay_Constant_Precisions(OdeModel):
     def __init__(self, config):
-        super(DR_Constant_V2, self).__init__(config)
-        self.version = 2
-
-
-class DR_Constant_Precisions(DR_Constant):
-    def __init__(self, config):
-        super(DR_Constant_Precisions, self).__init__(config)
-        self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR']
-        self.n_species = 8
+        super(Relay_Constant_Precisions, self).init_with_params(config)
+        self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR', 'LasI', 'LuxI','C6','C12']
+        self.n_species = 12
         self.precisions = NeuralPrecisions(self.n_species, config.params.n_hidden_decoder_precisions, 4)
         self.version = 1
         
@@ -163,11 +178,17 @@ class DR_Constant_Precisions(DR_Constant):
         n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
         zero = torch.zeros([n_batch, n_iwae])
-        x0 = torch.stack([theta.init_x, theta.init_rfp, theta.init_yfp, theta.init_cfp, zero, zero, theta.init_luxR, theta.init_lasR, theta.init_prec_x, theta.init_prec_rfp, theta.init_prec_yfp, theta.init_prec_cfp], axis=2)
+
+        treatments_transformed = torch.clamp(torch.exp(_treatments) - 1.0, 1e-12, 1e6)
+        c6a, c12a = torch.unbind(treatments_transformed, axis=1)
+        c6 = torch.transpose(c6a.repeat([n_iwae, 1]),0,1)
+        c12 = torch.transpose(c12a.repeat([n_iwae, 1]),0,1)
+
+        x0 = torch.stack([theta.init_x, theta.init_rfp, theta.init_yfp, theta.init_cfp, zero, zero, theta.init_luxR, theta.init_lasR, theta.init_luxI, theta.init_lasI, c6, c12, theta.init_prec_x, theta.init_prec_rfp, theta.init_prec_yfp, theta.init_prec_cfp], axis=2)
         return x0
 
-    def gen_reaction_equations(self, config, theta, treatments, dev_1hot):
-        func = DR_Constant_RHS(config, theta, treatments, dev_1hot, precisions=self.precisions, version=self.version)
+    def gen_reaction_equations(self, config, theta, treatments, dev_1hot, condition_on_device=True):
+        func = Relay_Constant_RHS(config, theta, treatments, dev_1hot, condition_on_device, precisions=self.precisions, version=self.version)
         self.aR = func.aR
         self.aS = func.aS
         return func
@@ -176,9 +197,3 @@ class DR_Constant_Precisions(DR_Constant):
         variable_summaries(writer, epoch, self.aR, 'aR.conditioned')
         variable_summaries(writer, epoch, self.aS, 'aS.conditioned')
         self.precisions.summaries(writer, epoch)
-
-
-class DR_Constant_Precisions_V2(DR_Constant_Precisions):
-    def __init__(self, config):
-        super(DR_Constant_Precisions_V2, self).__init__(config)
-        self.version = 2

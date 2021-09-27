@@ -1,0 +1,59 @@
+# ------------------------------------
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+# ------------------------------------
+
+data:
+  devices: ['PRPR']
+  pretty_devices: ['PRPR']
+  files: ['proc_PRPR_Chlor.csv']
+  signals: ["OD", "mRFP1", "EYFP", "ECFP"]
+  conditions: ["chlor"]
+  separate_conditions: false
+    
+model: prpr_constant
+
+params:
+  learning_boundaries: [250,500]
+  learning_rate: 0.01
+  learning_gamma: 0.2
+  n_hidden_decoder_precisions: 0
+
+  constant:
+    init_x: 0.002
+    init_rfp: 0.0
+    init_yfp: 0.0
+    init_cfp: 0.0
+  
+  # SHARED PARAMETERS 
+  shared:
+    data_prec:   { distribution: LogNormal, mu: 8.0,  sigma: 2.0 }
+    auto_prec: { distribution: LogNormal, mu: -5.0, sigma: 2.0 }
+    dfp_prec:  { distribution: LogNormal, mu: -2.0, sigma: 1.5 }
+    init_prec: { distribution: LogNormal, mu: 6.0, sigma: 2.0 }
+
+  global_conditioned:
+    conditioning: { devices: true, treatments: false }
+    
+  global:    
+    prec_x:   { distribution: data_prec}
+    prec_rfp: { distribution: data_prec}
+    prec_yfp: { distribution: data_prec}
+    prec_cfp: { distribution: data_prec}
+    
+    aYFP_PR: { distribution: LogNormal, mu: 0.0, sigma: 2.0}
+    aCFP_PR: { distribution: LogNormal, mu: 0.0, sigma: 2.0}
+    drfp: { distribution: dfp_prec}
+    dyfp: { distribution: dfp_prec}
+    dcfp: { distribution: dfp_prec}
+    a530: { distribution: auto_prec}
+    a480: { distribution: auto_prec}
+
+  # LOCAL PARAMETERS:
+  local:
+    conditioning: { devices: true, treatments: False }
+
+    r:    {distribution: LogNormal, mu: 0.0,   sigma: 0.25}
+    K:    {distribution: LogNormal, mu: 0.0,   prec: 2.0}
+    tlag: {distribution: LogNormal, mu: 0.0,   prec: 2.0}
+    rc:   {distribution: LogNormal, mu: 0.0,   sigma: 2.0}  #blows up on 'prec', why?
