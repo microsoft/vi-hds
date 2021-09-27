@@ -2,8 +2,15 @@
 # Licensed under the MIT license.
 
 import numpy as np
-from vihds.distributions import TfKumaraswamy, TfLogNormal, TfNormal, TfTruncatedNormal, TfConstant
+from vihds.distributions import (
+    TfKumaraswamy,
+    TfLogNormal,
+    TfNormal,
+    TfTruncatedNormal,
+    TfConstant,
+)
 from vihds.utils import default_get_value
+
 
 class DistributionDescription(object):
     def __init__(self, name, class_type, defaults, conditioning=None):
@@ -13,7 +20,7 @@ class DistributionDescription(object):
         self.conditioning = conditioning
         self.other_params = {}
 
-        if class_type == TfNormal or  class_type == TfLogNormal:
+        if class_type == TfNormal or class_type == TfLogNormal:
             self.nbr_free_params = 2
             self.free_params = ["mu", "log_prec"]
             self.params = ["mu", "prec"]
@@ -98,8 +105,8 @@ class DistributionDescription(object):
             self.free_to_constrained = ["positive", "positive"]
             self.other_param_names = ["zmin", "zmax"]
 
-            #init_zmin = 0.0
-            #init_zmax = 1.0
+            # init_zmin = 0.0
+            # init_zmax = 1.0
 
             a_dependency = None
             b_dependency = None
@@ -141,7 +148,7 @@ class DistributionDescription(object):
             self.free_to_constrained = ["identity"]
 
             value_dependency = None
-            
+
             init_value = 0.0
             if "value" in defaults:
                 init_value = defaults["value"]
@@ -163,9 +170,10 @@ class DistributionDescription(object):
 
         return s
 
+
 def instantiate_from_specs(name, specs, cond):
     try:  # catch conditions dict and skip
-        sd = specs['distribution']
+        sd = specs["distribution"]
     except:
         print("instantiate_from_specs:: skip instantiate")
         return None
@@ -173,35 +181,42 @@ def instantiate_from_specs(name, specs, cond):
         mu = default_get_value(specs, "mu", 0.0)
         sigma = default_get_value(specs, "sigma", None)
         prec = default_get_value(specs, "prec", None)
-        s = {'mu':mu, "sigma":sigma, "prec":prec}
-        return DistributionDescription(name, TfNormal, s, conditioning=cond) #TfNormal(**s)
+        s = {"mu": mu, "sigma": sigma, "prec": prec}
+        return DistributionDescription(name, TfNormal, s, conditioning=cond)  # TfNormal(**s)
     if sd == "LogNormal":
         mu = default_get_value(specs, "mu", 0.0)
         sigma = default_get_value(specs, "sigma", None)
         prec = default_get_value(specs, "prec", None)
-        s = {'mu':mu, "sigma":sigma, "prec":prec}
-        return DistributionDescription(name, TfLogNormal, s, conditioning=cond) #TfLogNormal(**s) #mu=float(specs['mu']), scale=float(specs['scale']))
+        s = {"mu": mu, "sigma": sigma, "prec": prec}
+        return DistributionDescription(
+            name, TfLogNormal, s, conditioning=cond
+        )  # TfLogNormal(**s) #mu=float(specs['mu']), scale=float(specs['scale']))
     if sd == "TruncNormal":
         mu = default_get_value(specs, "mu", 0.0)
         sigma = default_get_value(specs, "sigma", None)
         prec = default_get_value(specs, "prec", None)
         a = default_get_value(specs, "a", -np.inf)
         b = default_get_value(specs, "b", np.inf)
-        s = {'mu':mu, "sigma":sigma, "prec":prec, "a":a, "b":b}
-        return DistributionDescription(name, TfTruncatedNormal, s, conditioning=cond) #TfLogNormal(**s) #mu=float(specs['mu']), scale=float(specs['scale']))
+        s = {"mu": mu, "sigma": sigma, "prec": prec, "a": a, "b": b}
+        return DistributionDescription(
+            name, TfTruncatedNormal, s, conditioning=cond
+        )  # TfLogNormal(**s) #mu=float(specs['mu']), scale=float(specs['scale']))
     if sd == "Kumaraswamy":
         a = default_get_value(specs, "a", None)
         b = default_get_value(specs, "b", None)
         zmin = default_get_value(specs, "zmin", 0.0)
         zmax = default_get_value(specs, "zmax", 1.0)
-        s = {'a':a, "b":b, "zmin":zmin, "zmax":zmax}
-        return DistributionDescription(name, TfKumaraswamy, s, conditioning=cond) #TfLogNormal(**s) #mu=float(specs['mu']), scale=float(specs['scale']))
+        s = {"a": a, "b": b, "zmin": zmin, "zmax": zmax}
+        return DistributionDescription(
+            name, TfKumaraswamy, s, conditioning=cond
+        )  # TfLogNormal(**s) #mu=float(specs['mu']), scale=float(specs['scale']))
     if sd == "Constant":
         value = default_get_value(specs, "value", 0.0)
-        s = {'value':value}
+        s = {"value": value}
         return DistributionDescription(name, TfConstant, s)
     print("instantiate_from_specs:: cannot instantiate %s" % sd)
     return None
+
 
 class DotOperatorParams(object):
     def __init__(self):
@@ -217,12 +232,15 @@ class DotOperatorParams(object):
         if hasattr(self, name_of_param):
             print("already have param named: ", name_of_param)
         else:
-            setattr(self, name_of_param, instantiate_from_specs(name_of_param, spec_of_param, conditioning))
+            setattr(
+                self, name_of_param, instantiate_from_specs(name_of_param, spec_of_param, conditioning),
+            )
             self.list_of_params.append(name_of_param)
 
     def __str__(self):
         lines = ["%s = %s\n" % (p_name, getattr(self, p_name)) for p_name in self.list_of_params]
-        return ''.join(lines)
+        return "".join(lines)
+
 
 class Parameters(object):
     def __init__(self, params_dict):
@@ -315,7 +333,7 @@ class Parameters(object):
             print(self._constant)
 
     def load_shared_distributions(self):
-        keyword = 'shared'
+        keyword = "shared"
         p = DotOperatorParams()
 
         if keyword not in self.params_dict:
@@ -326,7 +344,7 @@ class Parameters(object):
         conditioning = None
 
         for k, v in keyword_dict.items():
-            if k == 'conditioning':
+            if k == "conditioning":
                 raise Exception("shared_distributions can no longer have conditioning")
             p.add_from_spec(k, v, conditioning)
 
@@ -342,13 +360,13 @@ class Parameters(object):
         keyword_dict = self.params_dict[keyword]
         # get conditioning statements first
         conditioning = None
-        if 'conditioning' in keyword_dict:
-            raise Exception("constant params can't have conditioning") #
+        if "conditioning" in keyword_dict:
+            raise Exception("constant params can't have conditioning")  #
 
         for k, v in keyword_dict.items():
-            if k == 'conditioning':
+            if k == "conditioning":
                 continue
-            p.add_from_spec(k, {'distribution':'Constant', 'value':v}, conditioning)
+            p.add_from_spec(k, {"distribution": "Constant", "value": v}, conditioning)
 
         self.add_constant(p)
 
@@ -362,22 +380,22 @@ class Parameters(object):
         keyword_dict = self.params_dict[keyword]
         # get conditioning statements first
         conditioning = None
-        if 'conditioning' in keyword_dict:
-            raise Exception("global_params can no longer have conditioning") #
+        if "conditioning" in keyword_dict:
+            raise Exception("global_params can no longer have conditioning")  #
 
         for k, v in keyword_dict.items():
-            if k == 'conditioning':
+            if k == "conditioning":
                 continue
-            if self.is_shared(v['distribution']):
+            if self.is_shared(v["distribution"]):
                 # get the spec info for shared
-                v = self.params_dict['shared'][v['distribution']]
+                v = self.params_dict["shared"][v["distribution"]]
             p.add_from_spec(k, v, conditioning)
 
         self.add_global(p)
 
     def load_global_cond(self, keyword="global_conditioned"):
 
-        #keyword = 'global'
+        # keyword = 'global'
         p = DotOperatorParams()
 
         if keyword not in self.params_dict:
@@ -388,28 +406,28 @@ class Parameters(object):
 
         # get conditioning statements first
         conditioning = None
-        if 'conditioning' in keyword_dict:
-            conditioning = keyword_dict['conditioning']
-            if 'species' in conditioning:
-                assert conditioning['species'] is False, "cannot have species here"
+        if "conditioning" in keyword_dict:
+            conditioning = keyword_dict["conditioning"]
+            if "species" in conditioning:
+                assert conditioning["species"] is False, "cannot have species here"
         else:
-            raise Exception("global_cond MUST have conditioning") #
+            raise Exception("global_cond MUST have conditioning")  #
 
         for k, v in keyword_dict.items():
-            if k == 'conditioning':
+            if k == "conditioning":
                 continue
-                #conditioning = v  # capture conditions for these parameters
+                # conditioning = v  # capture conditions for these parameters
             else:
-                if self.is_shared(v['distribution']):
-                    p.add_from_spec(k, self.params_dict['shared'][v['distribution']], conditioning)
-                    #p.add_from_existing(k, self.get_shared(v['distribution']))
+                if self.is_shared(v["distribution"]):
+                    p.add_from_spec(k, self.params_dict["shared"][v["distribution"]], conditioning)
+                    # p.add_from_existing(k, self.get_shared(v['distribution']))
                 else:
                     p.add_from_spec(k, v, conditioning)
 
         self.add_global_cond(p)
 
     def load_local(self, keyword="local"):
-        #keyword = 'local'
+        # keyword = 'local'
         p = DotOperatorParams()
 
         if keyword not in self.params_dict:
@@ -419,15 +437,15 @@ class Parameters(object):
         keyword_dict = self.params_dict[keyword]
         # get conditioning statements first
         conditioning = None
-        if 'conditioning' in keyword_dict:
-            conditioning = keyword_dict['conditioning']
+        if "conditioning" in keyword_dict:
+            conditioning = keyword_dict["conditioning"]
 
         for k, v in keyword_dict.items():
-            if k == 'conditioning':
+            if k == "conditioning":
                 pass
-            elif self.is_shared(v['distribution']):
-                p.add_from_spec(k, self.params_dict['shared'][v['distribution']], conditioning)
-            elif self.is_global(v['distribution']) or self.is_global_cond(v['distribution']):
+            elif self.is_shared(v["distribution"]):
+                p.add_from_spec(k, self.params_dict["shared"][v["distribution"]], conditioning)
+            elif self.is_global(v["distribution"]) or self.is_global_cond(v["distribution"]):
                 raise Exception("locals can only inherit from shared")
             else:
                 p.add_from_spec(k, v, conditioning)

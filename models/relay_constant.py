@@ -10,14 +10,17 @@ import pdb
 
 # pylint: disable = no-member, not-callable
 
+
 class Relay_Constant_RHS(OdeFunc):
-    def __init__(self, config, theta, treatments, dev_1hot, condition_on_device, precisions=None, version=1):
+    def __init__(
+        self, config, theta, treatments, dev_1hot, condition_on_device, precisions=None, version=1,
+    ):
         super(Relay_Constant_RHS, self).__init__(config, theta, treatments, dev_1hot, condition_on_device)
 
-        # Pass in a class instance for dynamic (neural) precisions. If None, then it is expected that you have 
+        # Pass in a class instance for dynamic (neural) precisions. If None, then it is expected that you have
         # latent variables for the precisions, as these will be assigned as part of BaseModel.expand_precisions_by_time()
         self.precisions = precisions
-        
+
         self.n_batch = theta.get_n_batch()
         self.n_iwae = theta.get_n_samples()
         self.n_species = 10
@@ -25,9 +28,9 @@ class Relay_Constant_RHS(OdeFunc):
         # tile treatments, one per iwae sample
         treatments_transformed = torch.clamp(torch.exp(treatments) - 1.0, 1e-12, 1e6)
         c6a, c12a = torch.unbind(treatments_transformed, axis=1)
-        c6 = torch.transpose(c6a.repeat([self.n_iwae, 1]),0,1)
-        c12 = torch.transpose(c12a.repeat([self.n_iwae, 1]),0,1)
-        
+        c6 = torch.transpose(c6a.repeat([self.n_iwae, 1]), 0, 1)
+        c12 = torch.transpose(c12a.repeat([self.n_iwae, 1]), 0, 1)
+
         # need to clip these to avoid overflow
         self.r = torch.clamp(theta.r, 0.0, 4.0)
         self.K = torch.clamp(theta.K, 0.0, 4.0)
@@ -41,10 +44,9 @@ class Relay_Constant_RHS(OdeFunc):
         self.dcfp = torch.clamp(theta.dcfp, 1e-12, 2.0)
         self.dR = torch.clamp(theta.dR, 1e-12, 5.0)
         self.dS = torch.clamp(theta.dS, 1e-12, 5.0)
-        
+
         self.dlasI = torch.clamp(theta.dlasI, 1e-12, 5.0)
         self.dluxI = torch.clamp(theta.dluxI, 1e-12, 5.0)
-        
 
         self.e76 = theta.e76
         self.e81 = theta.e81
@@ -54,13 +56,11 @@ class Relay_Constant_RHS(OdeFunc):
         self.KGS_76 = theta.KGS_76
         self.KGR_81 = theta.KGR_81
         self.KGS_81 = theta.KGS_81
-        
+
         self.KC6 = theta.KC6
         self.KC12 = theta.KC12
         self.Klux = theta.Klux
         self.Klas = theta.Klas
-        
-        
 
         # Condition on device information by mapping param_cond = f(param, d; \phi) where d is one-hot rep of device
         # if condition_on_device:
@@ -84,29 +84,32 @@ class Relay_Constant_RHS(OdeFunc):
             KR12 = torch.clamp(theta.KR12, lb, ub)
             KS6 = torch.clamp(theta.KS6, lb, ub)
             KS12 = torch.clamp(theta.KS12, lb, ub)
-            #self.fracLuxR = torch.clamp((power(KR6*c6, nR) + power(KR12*c12, nR)) / power(1.0 + KR6*c6 + KR12*c12, nR), 1e-6, 1.0)
-            #self.fracLasR = torch.clamp((power(KS6*c6, nS) + power(KS12*c12, nS)) / power(1.0 + KS6*c6 + KS12*c12, nS), 1e-6, 1.0)
-            self.fracLuxR = (power(KR6*c6, nR) + power(KR12*c12, nR)) / power(1.0 + KR6*c6 + KR12*c12, nR)
-            self.fracLasR = (power(KS6*c6, nS) + power(KS12*c12, nS)) / power(1.0 + KS6*c6 + KS12*c12, nS)
+            # self.fracLuxR = torch.clamp((power(KR6*c6, nR) + power(KR12*c12, nR)) / power(1.0 + KR6*c6 + KR12*c12, nR), 1e-6, 1.0)
+            # self.fracLasR = torch.clamp((power(KS6*c6, nS) + power(KS12*c12, nS)) / power(1.0 + KS6*c6 + KS12*c12, nS), 1e-6, 1.0)
+            self.fracLuxR = (power(KR6 * c6, nR) + power(KR12 * c12, nR)) / power(1.0 + KR6 * c6 + KR12 * c12, nR)
+            self.fracLasR = (power(KS6 * c6, nS) + power(KS12 * c12, nS)) / power(1.0 + KS6 * c6 + KS12 * c12, nS)
         else:
             raise Exception("Unknown version of Relay_Constant: %d" % version)
-            
+
     def forward(self, t, state):
-        x, rfp, yfp, cfp, f530, f480, luxR, lasR, luxI, lasI = torch.unbind(state[:,:,:self.n_species], axis=2)
+        x, rfp, yfp, cfp, f530, f480, luxR, lasR, luxI, lasI = torch.unbind(state[:, :, : self.n_species], axis=2)
 
         # Cells growing or not (not before lag-time)
-        gr = self.r * torch.sigmoid(4.0 * (t -  self.tlag))
+        gr = self.r * torch.sigmoid(4.0 * (t - self.tlag))
 
         # Specific growth and dilution
-        g = (1.0 - x / self.K)
+        g = 1.0 - x / self.K
         gamma = gr * g
 
         # Promoter activity
         boundLuxR = luxR * luxR * self.fracLuxR
         boundLasR = lasR * lasR * self.fracLasR
-        P76 = (self.e76 + self.KGR_76 * boundLuxR + self.KGS_76 * boundLasR) / (1.0 + self.KGR_76 * boundLuxR + self.KGS_76 * boundLasR)
-        P81 = (self.e81 + self.KGR_81 * boundLuxR + self.KGS_81 * boundLasR) / (1.0 + self.KGR_81 * boundLuxR + self.KGS_81 * boundLasR)
-
+        P76 = (self.e76 + self.KGR_76 * boundLuxR + self.KGS_76 * boundLasR) / (
+            1.0 + self.KGR_76 * boundLuxR + self.KGS_76 * boundLasR
+        )
+        P81 = (self.e81 + self.KGR_81 * boundLuxR + self.KGS_81 * boundLasR) / (
+            1.0 + self.KGR_81 * boundLuxR + self.KGS_81 * boundLasR
+        )
 
         # Right-hand sides
         d_x = gamma * x
@@ -119,13 +122,14 @@ class Relay_Constant_RHS(OdeFunc):
         d_lasR = self.rc * self.aS - (gamma + self.dS) * lasR
 
         d_luxI = self.rc * P81 - (gamma + self.dluxI) * luxI
-        d_lasI = self.rc * P76 - (gamma + self.dlasI) * lasI 
+        d_lasI = self.rc * P76 - (gamma + self.dlasI) * lasI
 
-        d_c6 = (self.KC6 * self.rc * x * luxI)/ (1.0 + luxI/self.Klux)
-        d_c12 = (self.KC12 * self.rc * x * lasI)/ (1.0 + lasI/self.Klas)
+        d_c6 = (self.KC6 * self.rc * x * luxI) / (1.0 + luxI / self.Klux)
+        d_c12 = (self.KC12 * self.rc * x * lasI) / (1.0 + lasI / self.Klas)
 
-
-        dX = torch.stack([d_x, d_rfp, d_yfp, d_cfp, d_f530, d_f480, d_luxR, d_lasR,d_luxI,d_lasI,d_c6,d_c12], axis=2)
+        dX = torch.stack(
+            [d_x, d_rfp, d_yfp, d_cfp, d_f530, d_f480, d_luxR, d_lasR, d_luxI, d_lasI, d_c6, d_c12,], axis=2,
+        )
         if self.precisions is not None:
             dV = self.precisions(t, state, None, self.n_batch, self.n_iwae)
             return torch.cat([dX, dV], dim=2)
@@ -136,8 +140,21 @@ class Relay_Constant_RHS(OdeFunc):
 class Relay_Constant(OdeModel):
     def __init__(self, config):
         super(Relay_Constant, self).__init__(config)
-        self.precisions = ConstantPrecisions(['prec_x','prec_rfp','prec_yfp','prec_cfp'])
-        self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR','LuxI','LasI','C6','C12']
+        self.precisions = ConstantPrecisions(["prec_x", "prec_rfp", "prec_yfp", "prec_cfp"])
+        self.species = [
+            "OD",
+            "RFP",
+            "YFP",
+            "CFP",
+            "F530",
+            "F480",
+            "LuxR",
+            "LasR",
+            "LuxI",
+            "LasI",
+            "C6",
+            "C12",
+        ]
         self.n_species = 12
         self.device = config.device
         self.version = 1
@@ -149,31 +166,60 @@ class Relay_Constant(OdeModel):
 
         treatments_transformed = torch.clamp(torch.exp(_treatments) - 1.0, 1e-12, 1e6)
         c6a, c12a = torch.unbind(treatments_transformed, axis=1)
-        c6 = torch.transpose(c6a.repeat([n_iwae, 1]),0,1)
-        c12 = torch.transpose(c12a.repeat([n_iwae, 1]),0,1)
+        c6 = torch.transpose(c6a.repeat([n_iwae, 1]), 0, 1)
+        c12 = torch.transpose(c12a.repeat([n_iwae, 1]), 0, 1)
 
-        x0 = torch.stack([theta.init_x, theta.init_rfp, theta.init_yfp, theta.init_cfp, zero, zero, theta.init_luxR, theta.init_lasR, theta.init_luxI, theta.init_lasI,c6,c12], axis=2)
+        x0 = torch.stack(
+            [
+                theta.init_x,
+                theta.init_rfp,
+                theta.init_yfp,
+                theta.init_cfp,
+                zero,
+                zero,
+                theta.init_luxR,
+                theta.init_lasR,
+                theta.init_luxI,
+                theta.init_lasI,
+                c6,
+                c12,
+            ],
+            axis=2,
+        )
         return x0
 
     def gen_reaction_equations(self, config, theta, treatments, dev_1hot, condition_on_device=True):
-        func = Relay_Constant_RHS(config, theta, treatments, dev_1hot, condition_on_device, version=self.version)
+        func = Relay_Constant_RHS(config, theta, treatments, dev_1hot, condition_on_device, version=self.version,)
         self.aR = func.aR
         self.aS = func.aS
         return func
 
     def summaries(self, writer, epoch):
-        variable_summaries(writer, epoch, self.aR, 'aR.conditioned')
-        variable_summaries(writer, epoch, self.aS, 'aS.conditioned')
+        variable_summaries(writer, epoch, self.aR, "aR.conditioned")
+        variable_summaries(writer, epoch, self.aS, "aS.conditioned")
 
 
 class Relay_Constant_Precisions(OdeModel):
     def __init__(self, config):
         super(Relay_Constant_Precisions, self).init_with_params(config)
-        self.species = ['OD', 'RFP', 'YFP', 'CFP', 'F530', 'F480', 'LuxR', 'LasR', 'LasI', 'LuxI','C6','C12']
+        self.species = [
+            "OD",
+            "RFP",
+            "YFP",
+            "CFP",
+            "F530",
+            "F480",
+            "LuxR",
+            "LasR",
+            "LasI",
+            "LuxI",
+            "C6",
+            "C12",
+        ]
         self.n_species = 12
         self.precisions = NeuralPrecisions(self.n_species, config.params.n_hidden_decoder_precisions, 4)
         self.version = 1
-        
+
     def initialize_state(self, theta, _treatments):
         n_batch = theta.get_n_batch()
         n_iwae = theta.get_n_samples()
@@ -181,19 +227,41 @@ class Relay_Constant_Precisions(OdeModel):
 
         treatments_transformed = torch.clamp(torch.exp(_treatments) - 1.0, 1e-12, 1e6)
         c6a, c12a = torch.unbind(treatments_transformed, axis=1)
-        c6 = torch.transpose(c6a.repeat([n_iwae, 1]),0,1)
-        c12 = torch.transpose(c12a.repeat([n_iwae, 1]),0,1)
+        c6 = torch.transpose(c6a.repeat([n_iwae, 1]), 0, 1)
+        c12 = torch.transpose(c12a.repeat([n_iwae, 1]), 0, 1)
 
-        x0 = torch.stack([theta.init_x, theta.init_rfp, theta.init_yfp, theta.init_cfp, zero, zero, theta.init_luxR, theta.init_lasR, theta.init_luxI, theta.init_lasI, c6, c12, theta.init_prec_x, theta.init_prec_rfp, theta.init_prec_yfp, theta.init_prec_cfp], axis=2)
+        x0 = torch.stack(
+            [
+                theta.init_x,
+                theta.init_rfp,
+                theta.init_yfp,
+                theta.init_cfp,
+                zero,
+                zero,
+                theta.init_luxR,
+                theta.init_lasR,
+                theta.init_luxI,
+                theta.init_lasI,
+                c6,
+                c12,
+                theta.init_prec_x,
+                theta.init_prec_rfp,
+                theta.init_prec_yfp,
+                theta.init_prec_cfp,
+            ],
+            axis=2,
+        )
         return x0
 
     def gen_reaction_equations(self, config, theta, treatments, dev_1hot, condition_on_device=True):
-        func = Relay_Constant_RHS(config, theta, treatments, dev_1hot, condition_on_device, precisions=self.precisions, version=self.version)
+        func = Relay_Constant_RHS(
+            config, theta, treatments, dev_1hot, condition_on_device, precisions=self.precisions, version=self.version,
+        )
         self.aR = func.aR
         self.aS = func.aS
         return func
 
     def summaries(self, writer, epoch):
-        variable_summaries(writer, epoch, self.aR, 'aR.conditioned')
-        variable_summaries(writer, epoch, self.aS, 'aS.conditioned')
+        variable_summaries(writer, epoch, self.aR, "aR.conditioned")
+        variable_summaries(writer, epoch, self.aS, "aS.conditioned")
         self.precisions.summaries(writer, epoch)
