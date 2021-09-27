@@ -1,14 +1,14 @@
+# ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
-
+# ------------------------------------
 import os
 import numpy as np
-import matplotlib.pyplot as pp
 from torch.utils.tensorboard import SummaryWriter
 from vihds import plotting
 
-class XvalMerge(object):
 
+class XvalMerge(object):
     def __init__(self, args, settings):
         self.epoch = args.epochs
         self.elbo = []
@@ -55,7 +55,7 @@ class XvalMerge(object):
         self.iw_predict_mu.append(val_results.iw_predict_mu)
         self.iw_predict_std.append(val_results.iw_predict_std)
         self.iw_states.append(val_results.iw_states)
-        
+
         self.data_ids.append(data_pair.test.indices)
         dataset = data_pair.test.dataset[data_pair.test.indices]
         self.devices.append(dataset["devices"])
@@ -63,10 +63,12 @@ class XvalMerge(object):
         self.X_obs.append(dataset["observations"].cpu().detach().numpy())
 
     def finalize(self):
-        print('Preparing cross-validation results')
+        print("Preparing cross-validation results")
         self.elbo = np.array(self.elbo)
         self.elbo_list = np.array(self.elbo_list)
-        self.q_values = [np.concatenate([np.array(q[i], ndmin=1) for q in self.q_values]) for i,_ in enumerate(self.q_names)]
+        self.q_values = [
+            np.concatenate([np.array(q[i], ndmin=1) for q in self.q_values]) for i, _ in enumerate(self.q_names)
+        ]
         # self.normalized_iws = np.concatenate(self.normalized_iws, 0)
         # self.precisions = np.concatenate(self.precisions, 0)
         # self.X_predict = np.concatenate(self.X_predict, 0)
@@ -78,25 +80,31 @@ class XvalMerge(object):
         self.devices = np.concatenate(self.devices, 0)
         self.treatments = np.concatenate(self.treatments, 0)
         self.X_obs = np.concatenate(self.X_obs, 0)
-        
+
         self.chunk_sizes = np.array([len(ids) for ids in self.data_ids], dtype=object)
         self.ids = np.hstack(self.data_ids)
-    
-    # def prepare(self):
-    #     # Importance-weighted means and stds over time
-    #     importance_weights = self.normalized_iws[:, :, np.newaxis, np.newaxis]
-    #     self.iw_predict_mu  = np.sum(importance_weights * self.X_predict, 1)
-    #     self.iw_predict_std = np.sqrt(np.sum(importance_weights * (self.X_predict**2 + 1.0 / self.precisions), 1) - self.iw_predict_mu**2)
-    #     self.iw_states      = np.sum(importance_weights * self.X_states, 1)
+
+    def prepare(self):
+        '''Importance-weighted means and stds over time'''
+        importance_weights = self.normalized_iws[:, :, np.newaxis, np.newaxis]
+        self.iw_predict_mu = np.sum(importance_weights * self.X_predict, 1)
+        self.iw_predict_std = np.sqrt(np.sum(importance_weights * (self.X_predict**2 + 1.0 / self.precisions), 1)
+                                      - self.iw_predict_mu**2)
+        self.iw_states = np.sum(importance_weights * self.X_states, 1)
 
     def save(self):
         location = self.trainer.tb_log_dir
-        print('Saving results to %s'%location)
+        print("Saving results to %s" % location)
+
         def save(base, data):
-            np.save(os.path.join(location, base + '.npy'), data)
+            np.save(os.path.join(location, base + ".npy"), data)
+
         def savetxt(base, data):
-            np.savetxt(os.path.join(location, base + '.txt'), np.array(data, dtype=str), delimiter=" ", fmt="%s")
-        print("Saving to: %s"%location)
+            np.savetxt(
+                os.path.join(location, base + ".txt"), np.array(data, dtype=str), delimiter=" ", fmt="%s",
+            )
+
+        print("Saving to: %s" % location)
         save("xval_elbo", self.elbo)
         save("xval_elbo_list", self.elbo_list)
         savetxt("xval_q_names", self.q_names)
@@ -110,7 +118,7 @@ class XvalMerge(object):
         # save("xval_precisions", self.precisions)
         # save("xval_X_predict", self.X_predict)
         # save("xval_X_states", self.X_states)
-        
+
         savetxt("xval_device_names", self.settings.devices)
         save("xval_devices", self.devices)
         save("xval_treatments", self.treatments)
@@ -124,11 +132,14 @@ class XvalMerge(object):
     def load(self, location=None):
         if location is None:
             location = self.trainer.tb_log_dir
-        print('Loading results from %s'%location)
+        print("Loading results from %s" % location)
+
         def load(base):
-            return np.load(os.path.join(location, base + '.npy'), allow_pickle=True)
+            return np.load(os.path.join(location, base + ".npy"), allow_pickle=True)
+
         def loadtxt(base):
-            return np.loadtxt(os.path.join(location, base + '.txt'), dtype=str, delimiter=" ")
+            return np.loadtxt(os.path.join(location, base + ".txt"), dtype=str, delimiter=" ")
+
         self.elbo = load("xval_elbo")
         self.elbo_list = load("xval_elbo_list")
         self.q_names = loadtxt("xval_q_names")
@@ -141,8 +152,8 @@ class XvalMerge(object):
         self.iw_predict_mu = load("xval_iw_predict_mu")
         self.iw_predict_std = load("xval_iw_predict_std")
         self.iw_states = load("xval_iw_states")
-        
-        #self.device_names = loadtxt("xval_device_names.txt")
+
+        # self.device_names = loadtxt("xval_device_names.txt")
         self.devices = load("xval_devices")
         self.treatments = load("xval_treatments")
         self.X_obs = load("xval_X_obs")
@@ -155,60 +166,68 @@ class XvalMerge(object):
     def make_writer(self, location=None):
         if location is None:
             location = self.trainer.tb_log_dir
-        self.xval_writer = SummaryWriter(os.path.join(location, 'xval'))
+        self.xval_writer = SummaryWriter(os.path.join(location, "xval"))
 
     def close_writer(self):
         self.xval_writer.close()
-    
-    def save_figs(self, f, tag):
-        #pp.close(f)
-        f.savefig(os.path.join(self.trainer.tb_log_dir,'%s.png'%tag), bbox_inches='tight')
-        f.savefig(os.path.join(self.trainer.tb_log_dir,'%s.pdf'%tag), bbox_inches='tight')
 
-    def mark_completed(self,node_name):
+    def save_figs(self, f, tag):
+        # pp.close(f)
+        f.savefig(os.path.join(self.trainer.tb_log_dir, "%s.png" % tag), bbox_inches="tight")
+        f.savefig(os.path.join(self.trainer.tb_log_dir, "%s.pdf" % tag), bbox_inches="tight")
+
+    def mark_completed(self, node_name):
         location = self.trainer.tb_log_dir
-        filepath = os.path.join(location,'completed.txt')
-        with open(filepath,"w") as file:
+        filepath = os.path.join(location, "completed.txt")
+        with open(filepath, "w") as file:
             file.write(node_name)
             file.close()
-        
 
     def make_images(self):
         device_ids = list(range(len(self.settings.devices)))
-        
+
         print("Making summary figure")
-        f_summary = plotting.plot_prediction_summary(self.settings.devices, self.species_names, self.times, 
-            self.X_obs, self.iw_predict_mu, self.iw_predict_std, self.devices, '-')
-        self.save_figs(f_summary,'xval_fit')
-        self.xval_writer.add_figure('Summary', f_summary, self.epoch)
+        f_summary = plotting.plot_prediction_summary(
+            self.settings.devices,
+            self.species_names,
+            self.times,
+            self.X_obs,
+            self.iw_predict_mu,
+            self.iw_predict_std,
+            self.devices,
+            "-",
+        )
+        self.save_figs(f_summary, "xval_fit")
+        self.xval_writer.add_figure("Summary", f_summary, self.epoch)
         self.xval_writer.flush()
 
         if self.settings.separate_conditions is True:
             print("Making treatment figure")
             f_treatments = plotting.xval_treatments(self, device_ids)
-            self.save_figs(f_treatments,'xval_treatments')
-            self.xval_writer.add_figure('Treatment', f_treatments, self.epoch)
+            self.save_figs(f_treatments, "xval_treatments")
+            self.xval_writer.add_figure("Treatment", f_treatments, self.epoch)
             self.xval_writer.flush()
 
         print("Making species figure")
-        f_species = plotting.species_summary(self.species_names, self.treatments, self.devices, self.times, 
-            self.iw_states, device_ids, self.settings)
-        self.save_figs(f_species,'xval_species')
-        self.xval_writer.add_figure('Species', f_species, self.epoch)
+        f_species = plotting.species_summary(
+            self.species_names, self.treatments, self.devices, self.times, self.iw_states, device_ids, self.settings,
+        )
+        self.save_figs(f_species, "xval_species")
+        self.xval_writer.add_figure("Species", f_species, self.epoch)
         self.xval_writer.flush()
 
         print("Making global parameters figure")
         f_gparas = plotting.xval_global_parameters(self)
         if f_gparas is not None:
-            self.save_figs(f_gparas,'xval_global_parameters')
-            self.xval_writer.add_figure('Parameters/Globals', f_gparas, self.epoch)
+            self.save_figs(f_gparas, "xval_global_parameters")
+            self.xval_writer.add_figure("Parameters/Globals", f_gparas, self.epoch)
             self.xval_writer.flush()
 
         print("Making variable parameters figure")
         f_vparas = plotting.xval_variable_parameters(self)
         if f_vparas is not None:
-            self.save_figs(f_vparas,'xval_variable_parameters')
-            self.xval_writer.add_figure('Parameters/Variable', f_vparas, self.epoch)
+            self.save_figs(f_vparas, "xval_variable_parameters")
+            self.xval_writer.add_figure("Parameters/Variable", f_vparas, self.epoch)
             self.xval_writer.flush()
 
         print("Making summary device figures")
@@ -216,19 +235,19 @@ class XvalMerge(object):
             print("- %s" % self.settings.pretty_devices[u])
             device = self.settings.devices[u]
             f_summary_i = plotting.xval_fit_summary(self, u, separatedInputs=self.settings.separate_conditions)
-            self.save_figs(f_summary_i, 'xval_summary_%s' % device)
-            self.xval_writer.add_figure('Device_Summary/'+device, f_summary_i, self.epoch)
+            self.save_figs(f_summary_i, "xval_summary_%s" % device)
+            self.xval_writer.add_figure("Device_Summary/" + device, f_summary_i, self.epoch)
         self.xval_writer.flush()
-        
+
         print("Making individual device figures")
         for u in device_ids:
             print("- %s" % self.settings.pretty_devices[u])
             device = self.settings.devices[u]
             if self.settings.separate_conditions is True:
-                ## TODO -> Add check to see if there is just 1 treatment? 2treatments function fails when there is just 1 treatment
+                # TODO: Check just 1 treatment? 2treatments function fails when there is just 1 treatment
                 f_indiv_i = plotting.xval_individual_2treatments(self, u)
             else:
                 f_indiv_i = plotting.xval_individual(self, u)
-            self.save_figs(f_indiv_i, 'xval_individual_%s' % device)
-            self.xval_writer.add_figure('Device_Individual/'+device, f_indiv_i, self.epoch)
+            self.save_figs(f_indiv_i, "xval_individual_%s" % device)
+            self.xval_writer.add_figure("Device_Individual/" + device, f_indiv_i, self.epoch)
         self.xval_writer.flush()

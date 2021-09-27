@@ -8,11 +8,12 @@ from vihds.config import Config, Trainer
 from vihds.run_xval import run_on_split, create_parser
 from vihds.xval import XvalMerge
 
-def execute(args,settings):
+
+def execute(args, settings):
     xval_merge = XvalMerge(args, settings)
     for split_idx in range(1, args.folds + 1):
         print("================================================================")
-        print("    FOLD %d of %d"%(split_idx, args.folds))
+        print("    FOLD %d of %d" % (split_idx, args.folds))
         print("---------------------------")
         data_pair, val_results = run_on_split(args, settings, split=split_idx)
         if val_results is not None:
@@ -25,16 +26,18 @@ def execute(args,settings):
         xval_merge.make_images()
         xval_merge.close_writer()
         xval_merge.mark_completed(args.experiment)
-        print('Completed')
+        print("Completed")
     else:
         print("No results in xval. Exiting...")
+
 
 def main():
     parser = create_parser(False)
     args = parser.parse_args()
     settings = Config(args)
     settings.trainer = Trainer(args, add_timestamp=True)
-    execute(args,settings)    
+    execute(args, settings)
+
 
 if __name__ == "__main__":
     main()

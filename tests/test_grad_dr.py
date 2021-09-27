@@ -5,6 +5,7 @@
 import os
 import tempfile
 import torch
+
 # pylint: disable=no-member
 
 from vihds.datasets import build_datasets
@@ -17,30 +18,37 @@ from vihds.training import Training, batch_to_device
 
 def run(yml):
     results_dir = tempfile.mkdtemp()
-    os.environ['INFERENCE_RESULTS_DIR'] = results_dir
-    
+    os.environ["INFERENCE_RESULTS_DIR"] = results_dir
+
     samples = 20
     parser = create_parser(True)
-    args = parser.parse_args([
-        "--train_samples=%d"%samples, "--test_samples=%d"%samples, 
-        "--test_epoch=5", "--plot_epoch=0", 
-        "--epochs=5", "--seed=0", yml])
+    args = parser.parse_args(
+        [
+            "--train_samples=%d" % samples,
+            "--test_samples=%d" % samples,
+            "--test_epoch=5",
+            "--plot_epoch=0",
+            "--epochs=5",
+            "--seed=0",
+            yml,
+        ]
+    )
     settings = Config(args)
     settings.trainer = Trainer(args, add_timestamp=True)
     data = build_datasets(args, settings)
     parameters = Parameters(settings.params)
     model = build_model(args, settings, data, parameters)
     training = Training(args, settings, data, parameters, model)
-    
+
     training.model.train()
     # Evaluate the encoder to produce a q
     batch = training.train_data
-    batch = batch_to_device(data.train.dataset.times, settings.device, batch)        
+    batch = batch_to_device(data.train.dataset.times, settings.device, batch)
     batch_results, theta, q, p = training.model(batch, args.train_samples)
 
     elbo = training.cost(batch, batch_results, theta, q, p).elbo
     elbo.backward()
-    
+
     nans = []
     for name, dist in q.distributions.items():
         for pname in dist.param_names:
@@ -53,48 +61,57 @@ def run(yml):
 
 
 def test_grad_auto():
-    yml = 'specs/auto_constant.yaml'
+    yml = "specs/auto_constant.yaml"
     run(yml)
+
 
 def test_grad_auto_prec():
-    yml = 'specs/auto_constant_precisions.yaml'
+    yml = "specs/auto_constant_precisions.yaml"
     run(yml)
+
 
 def test_grad_prpr():
-    yml = 'specs/prpr_constant.yaml'
+    yml = "specs/prpr_constant.yaml"
     run(yml)
+
 
 def test_grad_prpr_prec():
-    yml = 'specs/prpr_constant_precisions.yaml'
+    yml = "specs/prpr_constant_precisions.yaml"
     run(yml)
+
 
 def test_grad_dr_one():
-    yml = 'specs/dr_constant_one.yaml'
+    yml = "specs/dr_constant_one.yaml"
     run(yml)
+
 
 def test_grad_dr_icml():
-    yml = 'specs/dr_constant_icml.yaml'
+    yml = "specs/dr_constant_icml.yaml"
     run(yml)
+
 
 def test_grad_dr_blackbox():
-    yml = 'specs/dr_blackbox_icml.yaml'
+    yml = "specs/dr_blackbox_icml.yaml"
     run(yml)
+
 
 def test_grad_dr_v2():
-    yml = 'specs/dr_constant_v2.yaml'
+    yml = "specs/dr_constant_v2.yaml"
     run(yml)
+
 
 def test_grad_dr_precisions():
-    yml = 'specs/dr_constant_precisions.yaml'
+    yml = "specs/dr_constant_precisions.yaml"
     run(yml)
+
 
 def test_grad_dr_precisions_v2():
-    yml = 'specs/dr_constant_precisions_v2.yaml'
+    yml = "specs/dr_constant_precisions_v2.yaml"
     run(yml)
 
 
-if __name__ == '__main__':
-    #test_grad_auto()
+if __name__ == "__main__":
+    # test_grad_auto()
     test_grad_auto_prec()
     test_grad_prpr()
     test_grad_prpr_prec()
