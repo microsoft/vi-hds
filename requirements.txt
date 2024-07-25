@@ -1,5 +1,5 @@
 --find-links https://download.pytorch.org/whl/torch_stable.html
-torch==1.4.0
+torch==2.2.0
 torchvision
 numpy
 pillow
